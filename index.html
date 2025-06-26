@@ -3,10 +3,32 @@
 <head>
   <meta charset="utf-8">
   <title>PS4 WebKit Exploit</title>
+  <style>
+    body {
+      background: black;
+      color: lime;
+      font-family: monospace;
+      padding: 20px;
+    }
+    #log {
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
   <h1>PS4 WebKit Exploit Running...</h1>
+  <div id="log"></div>
+
+  <script>
+    // Simple log() wrapper if not already defined
+    function log(msg) {
+      const el = document.getElementById("log");
+      el.textContent += msg + "\n";
+      console.log(msg);
+    }
+  </script>
+
+  <!-- Your exploit logic -->
   <script src="exploit.js"></script>
-<div id="log" style="white-space:pre-wrap; font-family:monospace; padding:1em; background:#000; color:#0f0; font-size:14px; height:50vh; overflow:auto; border-top:2px solid #0f0;"></div>
 </body>
 </html>
