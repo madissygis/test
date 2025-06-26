@@ -28,7 +28,28 @@ obj.foo();
 // If leakedReceiver is not undefined/null, hang
 if (leakedReceiver && typeof leakedReceiver === "object") {
   // Enter infinite loop (browser will freeze)
-  while (true) {}
+  // After your previous code:
+if (leakedReceiver) {
+  // Try accessing properties
+  try {
+    var test = leakedReceiver.someProperty;
+  } catch(e) {}
+
+  // Try setting properties
+  try {
+    leakedReceiver.someProperty = 1337;
+  } catch(e) {}
+
+  // Try calling methods
+  try {
+    leakedReceiver();
+  } catch(e) {}
+
+  // Try using it as a prototype
+  try {
+    Object.setPrototypeOf({}, leakedReceiver);
+  } catch(e) {}
+}
 }
 </script>
 </body>
