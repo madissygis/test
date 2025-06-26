@@ -1,63 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PS4 WebKit Exploit</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #0f0; padding: 1em; }
+    pre#log { white-space: pre-wrap; }
+  </style>
+</head>
 <body>
-<pre id="out"></pre>
-<script>
-function log(msg) {
-    document.getElementById('out').textContent += msg + '\n';
-}
+  <h1>PS4 WebKit Exploit</h1>
+  <pre id="log">[+] Loading...</pre>
 
-function leakReceiverViaSuperGet() {
-    class Leaker {
-        leak() {
-            return super.secret;
-        }
-    }
-
-    let realReceiver = null;
-
-    Leaker.prototype.__proto__ = new Proxy({}, {
-        get(target, prop, receiver) {
-            log(`[+] Proxy trap fired for super.${prop}`);
-
-            realReceiver = receiver;
-
-            log(`typeof receiver: ${typeof receiver}`);
-            try {
-                log(`Object.prototype.toString.call(receiver): ${Object.prototype.toString.call(receiver)}`);
-            } catch (e) {
-                log(`Object.prototype.toString threw: ${e.message}`);
-            }
-
-            try {
-                const descs = Object.getOwnPropertyDescriptors(receiver);
-                log(`Own property keys: ${Object.keys(descs).join(", ")}`);
-            } catch (e) {
-                log(`getOwnPropertyDescriptors threw: ${e.message}`);
-            }
-
-            try {
-                const proto = Object.getPrototypeOf(receiver);
-                log(`Prototype: ${proto}`);
-            } catch (e) {
-                log(`getPrototypeOf threw: ${e.message}`);
-            }
-
-            try {
-                const isExt = Object.isExtensible(receiver);
-                log(`Extensible: ${isExt}`);
-            } catch (e) {
-                log(`isExtensible threw: ${e.message}`);
-            }
-
-            return 0;
-        }
-    });
-
-    const { leak } = Leaker.prototype;
-    leak(); // trigger leak
-}
-leakReceiverViaSuperGet();
-</script>
+  <script src="Leak_test_exploit.js"></script>
 </body>
 </html>
