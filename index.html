@@ -4,120 +4,86 @@
 <pre id="out"></pre>
 <script>
 function log(msg) {
-    document.getElementById('out').textContent += msg + '\n';
+    document.getElementById("out").textContent += msg + "\n";
 }
 
-function inspectLeakedReceiver(leakedReceiver) {
-    log("Inspecting leaked receiver...");
+function leakReceiverViaSuperGet() {
+    let capturedReceiver = null;
 
+    class Leaker {
+        leak() {
+            return super.secret;
+        }
+    }
+
+    Leaker.prototype.__proto__ = new Proxy({}, {
+        get(target, prop, receiver) {
+            log(`[+] Proxy trap hit for "${prop}"`);
+            capturedReceiver = receiver;
+            return 42;
+        }
+    });
+
+    const { leak } = Leaker.prototype;
+    leak(); // trigger once
+
+    if (!capturedReceiver) {
+        log("[-] Failed to capture receiver!");
+    } else {
+        log("[+] Captured receiver!");
+        return capturedReceiver;
+    }
+
+    return null;
+}
+
+function inspectReceiver(r) {
     try {
-        log(`typeof: ${typeof leakedReceiver}`);
+        log(`typeof: ${typeof r}`);
     } catch (e) {
         log(`typeof threw: ${e.message}`);
     }
 
     try {
-        log(`toString: ${String(leakedReceiver)}`);
+        log(`toString: ${String(r)}`);
     } catch (e) {
-        log(`toString threw: ${e.message}`);
+        log(`String() threw: ${e.message}`);
     }
 
     try {
-        log(`valueOf: ${leakedReceiver.valueOf()}`);
+        log(`+r: ${+r}`);
     } catch (e) {
-        log(`valueOf threw: ${e.message}`);
+        log(`+r threw: ${e.message}`);
     }
 
     try {
-        log(`receiver + "": ${leakedReceiver + ""}`);
-    } catch (e) {
-        log(`coercion threw: ${e.message}`);
-    }
-
-    try {
-        log(`Object.prototype.toString.call: ${Object.prototype.toString.call(leakedReceiver)}`);
-    } catch (e) {
-        log(`toString.call threw: ${e.message}`);
-    }
-
-    try {
-        log(`Object.getPrototypeOf: ${Object.getPrototypeOf(leakedReceiver)}`);
+        log(`Object.getPrototypeOf: ${Object.getPrototypeOf(r)}`);
     } catch (e) {
         log(`getPrototypeOf threw: ${e.message}`);
     }
 
     try {
-        log(`Object.keys: ${JSON.stringify(Object.keys(leakedReceiver))}`);
-    } catch (e) {
-        log(`Object.keys threw: ${e.message}`);
-    }
-
-    try {
-        log(`Reflect.ownKeys: ${JSON.stringify(Reflect.ownKeys(leakedReceiver))}`);
+        log(`Reflect.ownKeys: ${JSON.stringify(Reflect.ownKeys(r))}`);
     } catch (e) {
         log(`Reflect.ownKeys threw: ${e.message}`);
     }
 
     try {
-        log(`getOwnPropertyDescriptors: ${JSON.stringify(Object.getOwnPropertyDescriptors(leakedReceiver))}`);
+        r._probe = 1337;
+        log(`Assigned _probe: ${r._probe}`);
     } catch (e) {
-        log(`getOwnPropertyDescriptors threw: ${e.message}`);
+        log(`Assigning _probe threw: ${e.message}`);
     }
 
     try {
-        log(`Is extensible: ${Object.isExtensible(leakedReceiver)}`);
+        log(`isExtensible: ${Object.isExtensible(r)}`);
     } catch (e) {
         log(`isExtensible threw: ${e.message}`);
     }
-
-    try {
-        leakedReceiver._test = 1337;
-        log(`Write test: _test = 1337 assigned`);
-    } catch (e) {
-        log(`Write test threw: ${e.message}`);
-    }
-
-    try {
-        log(`_test value: ${leakedReceiver._test}`);
-    } catch (e) {
-        log(`Read _test threw: ${e.message}`);
-    }
-
-    try {
-        log(`instanceof Object: ${leakedReceiver instanceof Object}`);
-    } catch (e) {
-        log(`instanceof threw: ${e.message}`);
-    }
 }
 
-function leakReceiverViaProxy() {
-    class Leaker {
-        leak() {
-            return super.prop;
-        }
-    }
-
-    let captured = null;
-
-    Leaker.prototype.__proto__ = new Proxy({}, {
-        get(target, prop, receiver) {
-            captured = receiver;
-            log(`[+] Proxy trap triggered with property: ${prop}`);
-            return 123;
-        }
-    });
-
-    const { leak } = Leaker.prototype;
-    leak(); // trigger
-
-    if (captured) {
-        inspectLeakedReceiver(captured);
-    } else {
-        log("[-] Failed to capture receiver.");
-    }
-}
-
-leakReceiverViaProxy();
+const r = leakReceiverViaSuperGet();
+if (r) inspectReceiver(r);
 </script>
 </body>
 </html>
