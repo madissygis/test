@@ -14,63 +14,40 @@ function leakReceiverViaSuperGet() {
         }
     }
 
-    let leakedReceiver = null;
+    let realReceiver = null;
 
     Leaker.prototype.__proto__ = new Proxy({}, {
         get(target, prop, receiver) {
-            log(`[+] Proxy trap called for property "${prop}"`);
+            log(`[+] Proxy trap fired for super.${prop}`);
 
-            // Save for external access or debug
-            leakedReceiver = receiver;
+            realReceiver = receiver;
 
-            // 🔬 Coercion tests
+            log(`typeof receiver: ${typeof receiver}`);
             try {
-                log(`typeof receiver: ${typeof receiver}`);
+                log(`Object.prototype.toString.call(receiver): ${Object.prototype.toString.call(receiver)}`);
             } catch (e) {
-                log(`typeof threw: ${e.message}`);
+                log(`Object.prototype.toString threw: ${e.message}`);
             }
 
             try {
-                log(`receiver.constructor: ${receiver.constructor}`);
+                const descs = Object.getOwnPropertyDescriptors(receiver);
+                log(`Own property keys: ${Object.keys(descs).join(", ")}`);
             } catch (e) {
-                log(`receiver.constructor threw: ${e.message}`);
+                log(`getOwnPropertyDescriptors threw: ${e.message}`);
             }
 
             try {
-                log(`receiver instanceof Object: ${receiver instanceof Object}`);
+                const proto = Object.getPrototypeOf(receiver);
+                log(`Prototype: ${proto}`);
             } catch (e) {
-                log(`instanceof threw: ${e.message}`);
+                log(`getPrototypeOf threw: ${e.message}`);
             }
 
             try {
-                log(`String(receiver): ${String(receiver)}`);
+                const isExt = Object.isExtensible(receiver);
+                log(`Extensible: ${isExt}`);
             } catch (e) {
-                log(`String(receiver) threw: ${e.message}`);
-            }
-
-            try {
-                log(`receiver + "": ${receiver + ""}`);
-            } catch (e) {
-                log(`receiver + "" threw: ${e.message}`);
-            }
-
-            try {
-                log(`receiver == "[object Object]": ${receiver == "[object Object]"}`);
-            } catch (e) {
-                log(`comparison threw: ${e.message}`);
-            }
-
-            try {
-                log(`JSON.stringify(receiver): ${JSON.stringify(receiver)}`);
-            } catch (e) {
-                log(`JSON.stringify threw: ${e.message}`);
-            }
-
-            try {
-                let desc = Object.getOwnPropertyDescriptors(receiver);
-                log(`Object.getOwnPropertyDescriptors: ${JSON.stringify(desc)}`);
-            } catch (e) {
-                log(`Object.getOwnPropertyDescriptors threw: ${e.message}`);
+                log(`isExtensible threw: ${e.message}`);
             }
 
             return 0;
@@ -78,9 +55,8 @@ function leakReceiverViaSuperGet() {
     });
 
     const { leak } = Leaker.prototype;
-    leak(); // Trigger leak
+    leak(); // trigger leak
 }
-
 leakReceiverViaSuperGet();
 </script>
 </body>
