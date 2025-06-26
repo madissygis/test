@@ -22,5 +22,6 @@ export function triggerUAF() {
     const log = document.getElementById("log");
     log.textContent += "[+] UAF triggered. Heap sprayed.\n";
     console.log("[+] UAF triggered. Heap sprayed.");
+    if (typeof postUAFCallback === "function") postUAFCallback();
   }, 10);
 }
