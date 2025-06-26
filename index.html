@@ -3,33 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>PS4 WebKit Exploit</title>
-  <style>
-    body {
-      background: black;
-      color: lime;
-      font-family: monospace;
-      padding: 20px;
-    }
-    #log {
-      white-space: pre-wrap;
-    }
-  </style>
 </head>
 <body>
   <h1>PS4 WebKit Exploit Running...</h1>
-  <div id="log"></div>
-
-  <script>
-    // Simple log() wrapper if not already defined
-    function log(msg) {
-      const el = document.getElementById("log");
-      el.textContent += msg + "\n";
-      console.log(msg);
-    }
-  </script>
-
-  <!-- Your exploit logic -->
-  <script src="dl-exploit.js"></script> <!-- <- This must come first -->
-  <script src="exploit.js"></script>
+  <script type="module" src="exploit.js"></script>
 </body>
 </html>
