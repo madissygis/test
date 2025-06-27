@@ -1,14 +1,56 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>PS4 WebKit Exploit - CVE-2023-41993</title>
-  <script src="util.js"></script>
-  <script src="int64.js"></script>
-  <script src="exploit.js"></script>
+  <meta charset="utf-8">
+  <title>WebKit SBFX Underflow PoC</title>
 </head>
 <body>
-  <h1>PS4 WebKit Exploit</h1>
-  <pre id="status">[+] Loading exploit...</pre>
+  <pre id="log"></pre>
+  <script>
+    function log(msg) {
+      document.getElementById("log").textContent += msg + "\n";
+    }
+
+    function foo(a, b, c) {
+      let x = a | 0;
+      let y = b | 0;
+      let z = c & 15;
+      z = (x << y) ^ (x << (y & 0x10ff));
+      let r = z ^ 0xf01;
+      let s = z ^ 0xf1f;
+
+      let result = (((a >>> r) << s) >> s);
+
+      return result;
+    }
+
+    function runTest() {
+      const LEN = 100_000_000 - 1;
+      let res = foo((LEN & 127), 456, 789);
+      log(`Initial test result: ${res}`);
+      if (res !== -1) {
+        log("❌ Initial test failed: " + res);
+        throw new Error("Wrong result in initial test: " + res);
+      }
+
+      for (let i = 0; i <= LEN; i++) {
+        res = foo((i & 127), 456, 789);
+        if (res !== -1) {
+          log("❌ Error at i = " + i + " result = " + res);
+          throw new Error("Loop test failed at i=" + i + ": " + res);
+        }
+        if (i % 10_000_000 === 0) {
+          log("Progress: i = " + i);
+        }
+      }
+
+      log("✅ All tests passed successfully");
+    }
+
+    window.onload = () => {
+      log("[+] Starting SBFX underflow PoC...");
+      setTimeout(runTest, 100);
+    };
+  </script>
 </body>
 </html>
