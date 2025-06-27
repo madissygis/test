@@ -2,28 +2,46 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>WebKit PoC Analysis</title>
+  <title>WebKit content-visibility UAF PoC</title>
   <style>
+    .container {
+      width: 200px;
+      height: 200px;
+      border: 2px solid black;
+      margin: 40px;
+    }
+    .child {
+      width: 100px;
+      height: 100px;
+      background: blue;
+      margin: 40px;
+    }
     #log {
       font-family: monospace;
-      background: #f8f8f8;
-      border: 1px solid #ccc;
-      min-height: 80px;
-      padding: 8px;
-      margin-top: 20px;
+      background: #eee;
+      padding: 10px;
+      min-height: 40px;
+      margin: 20px 0;
       white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
-  <h1>WebKit UAF PoC Analysis</h1>
+  <h1>WebKit UAF PoC with DOM Logging</h1>
   <div class="container">
     <div class="child"></div>
   </div>
-  <button onclick="import('./poc.js').then(m => m.triggerUAF())">Trigger UAF</button>
   <div id="log"></div>
+  <button id="triggerBtn">Trigger UAF</button>
+
   <script type="module">
-    import "./poc.js";
+    import { debug_log, clear_log } from './module/utils.mjs';
+    import { triggerUAF } from './poc.js';
+
+    document.getElementById("triggerBtn").onclick = () => {
+      clear_log();
+      triggerUAF();
+    };
   </script>
 </body>
 </html>
