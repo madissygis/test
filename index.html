@@ -1,42 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>WebKit UAF PoC</title>
-  <style>
-    .container {
-      width: 200px;
-      height: 200px;
-      border: 2px solid black;
-      margin: 40px;
-    }
-    .child {
-      width: 100px;
-      height: 100px;
-      background: blue;
-      margin: 40px;
-    }
-    #log {
-      font-family: monospace;
-      background: #eee;
-      padding: 10px;
-      min-height: 40px;
-      margin: 20px 0;
-      white-space: pre-wrap;
-    }
-  </style>
+    <meta charset="utf-8">
+    <title>Receiver Leak Test</title>
 </head>
 <body>
-  <h1>WebKit Use-After-Free PoC</h1>
-  <div class="container">
-    <div class="child"></div>
-  </div>
-  <div id="log"></div>
-  <button id="triggerBtn">Trigger UAF</button>
-
-  <script type="module">
-    import { triggerUAF } from './poc.js';
-    document.getElementById("triggerBtn").onclick = () => triggerUAF();
-  </script>
+    <h1>Receiver Leak Test</h1>
+    <pre id="log"></pre>
+    <script type="module" src="Leak_test_exploit.js"></script>
 </body>
 </html>
