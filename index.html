@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>WebKit content-visibility UAF PoC</title>
+  <title>WebKit UAF PoC</title>
   <style>
     .container {
       width: 200px;
@@ -27,7 +27,7 @@
   </style>
 </head>
 <body>
-  <h1>WebKit UAF PoC with DOM Logging</h1>
+  <h1>WebKit Use-After-Free PoC</h1>
   <div class="container">
     <div class="child"></div>
   </div>
@@ -35,13 +35,8 @@
   <button id="triggerBtn">Trigger UAF</button>
 
   <script type="module">
-    import { debug_log, clear_log } from './module/utils.mjs';
     import { triggerUAF } from './poc.js';
-
-    document.getElementById("triggerBtn").onclick = () => {
-      clear_log();
-      triggerUAF();
-    };
+    document.getElementById("triggerBtn").onclick = () => triggerUAF();
   </script>
 </body>
 </html>
