@@ -1,7 +1,11 @@
-window.onload = () => {
-  const log = document.createElement("pre");
-  log.textContent = "✅ payload.js loaded!";
-  document.body.appendChild(log);
+window.read_target = new Uint8Array(8);
 
-  schedule_read64(0xDEADBEEF);
+window.onload = () => {
+  debug_log("✅ payload.js loaded!");
+
+  // Fill marker
+  for (let i = 0; i < 8; i++) read_target[i] = 0xAA;
+
+  // Attempt kernel read (spray must be in place)
+  schedule_read64(0xFFFFFFFF82600000);
 };
