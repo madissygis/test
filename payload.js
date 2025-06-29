@@ -1,3 +1,8 @@
+window.onload = () => {
+  const log = document.createElement("pre");
+  log.textContent = "✅ payload.js loaded!";
+  document.body.appendChild(log);
+};
 window.read_target = new Uint8Array(8);
 
 function start_exploit() {
