@@ -2,25 +2,29 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>PS4 11.50 Exploit</title>
-  <style>
-    .container {
-      content-visibility: hidden;
-    }
-    .child {
-      width: 100px;
-      height: 100px;
-      background-color: blue;
-    }
-  </style>
+  <title>Button Test</title>
 </head>
 <body>
   <div class="container" id="container">
     <div class="child" id="child"></div>
   </div>
-  <script src="int64.js"></script>
-  <script src="rop.js"></script>
-  <script src="payload.js"></script>
-  <script src="exploit.js"></script>
+
+  <script>
+    window.onload = () => {
+      const el = document.createElement("pre");
+      el.textContent = "✅ window.onload triggered";
+      document.body.appendChild(el);
+
+      const btn = document.createElement("button");
+      btn.textContent = "Click me";
+      btn.style.fontSize = "24px";
+      btn.onclick = () => {
+        const log = document.createElement("pre");
+        log.textContent = "✅ Button was clicked!";
+        document.body.appendChild(log);
+      };
+      document.body.appendChild(btn);
+    };
+  </script>
 </body>
 </html>
