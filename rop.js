@@ -7,7 +7,7 @@ function debug_log(msg) {
 }
 
 let ropChain = new Uint32Array(0x400);
-
+debug_log("📦 ropChain buffer address (approx): " + ropChain.buffer);
 function schedule_read64(addr) {
   debug_log("📦 schedule_read64() building real ROP chain");
 
