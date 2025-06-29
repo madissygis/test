@@ -2,29 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Button Test</title>
+  <title>Payload Load Test</title>
 </head>
 <body>
   <div class="container" id="container">
     <div class="child" id="child"></div>
   </div>
 
-  <script>
-    window.onload = () => {
-      const el = document.createElement("pre");
-      el.textContent = "✅ window.onload triggered";
-      document.body.appendChild(el);
-
-      const btn = document.createElement("button");
-      btn.textContent = "Click me";
-      btn.style.fontSize = "24px";
-      btn.onclick = () => {
-        const log = document.createElement("pre");
-        log.textContent = "✅ Button was clicked!";
-        document.body.appendChild(log);
-      };
-      document.body.appendChild(btn);
-    };
-  </script>
+  <script src="payload.js"></script>
 </body>
 </html>
