@@ -1,11 +1,20 @@
-let read_target = new Uint8Array(8); // Kernel will copy 8 bytes here
+window.read_target = new Uint8Array(8);
 
 function run_payload() {
-  debug_log("Payload starting...");
+  debug_log("Running copyout read64 test...");
 
-  // Run a test read from libkernel base
-  const addr = 0xFFFFFFFF82600000; // libkernel base (known on 11.50)
-  const val = read64(addr);
+  // Set up a known value for JS to detect later
+  for (let i = 0; i < 8; i++) read_target[i] = 0xAA;
 
-  debug_log("read64(libkernel base): 0x" + val.toString(16));
+  // Use static read from libkernel base
+  schedule_read64(0xFFFFFFFF82600000);
+
+  setTimeout(() => {
+    let v = new DataView(read_target.buffer);
+    const lo = v.getUint32(0, true);
+    const hi = v.getUint32(4, true);
+    const result = (BigInt(hi) << 32n) | BigInt(lo);
+
+    debug_log("read_target updated: 0x" + result.toString(16));
+  }, 500);
 }
