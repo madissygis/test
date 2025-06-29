@@ -2,14 +2,25 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Payload Load Test</title>
+  <title>PS4 11.50 Exploit</title>
+  <style>
+    .container {
+      content-visibility: hidden;
+    }
+    .child {
+      width: 100px;
+      height: 100px;
+      background-color: blue;
+    }
+  </style>
 </head>
 <body>
   <div class="container" id="container">
     <div class="child" id="child"></div>
   </div>
 
-  <script src="rop.js"></script>
-  <script src="payload.js"></script>
+  <script src="rop.js"></script>       <!-- defines schedule_read64() -->
+  <script src="exploit.js"></script>   <!-- defines triggerUAF() -->
+  <script src="payload.js"></script>   <!-- defines button and logic -->
 </body>
 </html>
