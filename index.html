@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bug C9880DE</title>
+    <meta charset="utf-8">
+    <title>PS4 DOM UAF Exploit</title>
 </head>
 <body>
-    <h1>UAF: CVE-2023-28205</h1>
-    <p>Click the button to see the bug in action. (Browser crashes or [+] idx: 0x0)</p>
-    <button id="button">Click me</button>
-    <script type="module">
-        import { main } from './test.mjs';
-        document.getElementById('button').addEventListener('click', main);
-    </script>
+    <h1>PS4 WebKit Exploit</h1>
+    <div class="container">
+        <div class="child" style="width:100px; height:100px; background:blue;"></div>
+    </div>
+    <button onclick="startExploit()">Run Exploit</button>
+    <pre id="log"></pre>
+    <script type="module" src="exploit.mjs"></script>
 </body>
 </html>
