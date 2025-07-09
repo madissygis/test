@@ -84,7 +84,7 @@
     }
 
     async function loadFont() {
-      const font = new FontFace('boom', 'url("mal_patched.ttf?v=' + Date.now() + '")'); // cache bust
+      const font = new FontFace('boom', 'url("mal.ttf?v=' + Date.now() + '")'); // cache bust
       try {
         await font.load();
         document.fonts.add(font);
