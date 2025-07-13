@@ -1,19 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Proxy Flow Hijack Test</title>
+    <title>Blind Leak Detection via Proxy</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting Proxy Flow Hijack test...");
+            log("Starting blind leak detection...");
 
-            // Dummy object to use in 'with' block
-            const base = {
-                foo() { return "original"; }
-            };
+            const base = {};
 
             let callCount = 0;
 
@@ -27,28 +24,39 @@
                     log("Proxy 'get' called (" + callCount + ")");
                     log("prop = " + prop);
 
-                    // Try to hijack property lookup
-                    if (prop === "toString") {
-                        log("Hijacking 'toString'");
-                        return () => {
-                            log("🎉 toString was called!");
-                            debugger; // If devtools are open
-                            return "hijacked";
-                        };
-                    }
-
-                    // Try to inspect receiver deeply
+                    // Try to deeply inspect receiver
                     try {
-                        for (let key in receiver) {
+                        log("Receiver = " + receiver);
+                        log("Receiver.constructor = " + receiver?.constructor?.name);
+
+                        // Try enumerating all keys
+                        const seen = new Set();
+                        const stack = [receiver];
+
+                        while (stack.length > 0) {
+                            const obj = stack.pop();
                             try {
-                                const val = receiver[key];
-                                log(`receiver.${key} = ${typeof val} (${val})`);
+                                for (let key of Reflect.ownKeys(obj)) {
+                                    if (!seen.has(key)) {
+                                        seen.add(key);
+                                        log(`Discovered key: ${key} (typeof: ${typeof key})`);
+                                        try {
+                                            const val = Reflect.get(obj, key, receiver);
+                                            log(`  value typeof: ${typeof val}`);
+                                        } catch (e) {
+                                            log(`  error reading value: ${e.message}`);
+                                        }
+                                        if (typeof obj === "object" && obj !== null) {
+                                            stack.push(Object.getPrototypeOf(obj));
+                                        }
+                                    }
+                                }
                             } catch (e) {
-                                log(`Error reading receiver.${key}: ${e.message}`);
+                                log("Error enumerating keys: " + e.message);
                             }
                         }
                     } catch (e) {
-                        log("Error enumerating receiver keys: " + e.message);
+                        log("Error inspecting receiver: " + e.message);
                     }
 
                     return Reflect.get(...arguments);
@@ -60,9 +68,8 @@
             (function () {
                 with (proxy) {
                     try {
-                        log("Calling toString...");
-                        let result = toString(); // Should trigger hijack
-                        log("Result: " + result);
+                        log("Accessing 'toString'...");
+                        toString(); // Trigger Proxy trap
                     } catch (e) {
                         log("Exception in with-block: " + e.message);
                     }
@@ -72,7 +79,7 @@
     </script>
 </head>
 <body>
-    <h2>Proxy Flow Hijack Test</h2>
-    <p>Trying to hijack JS execution flow via Proxy traps.</p>
+    <h2>Blind Leak Detection via Proxy Enumeration</h2>
+    <p>Trying to detect internal scope leaks via property enumeration.</p>
 </body>
 </html>
