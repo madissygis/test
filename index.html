@@ -1,49 +1,65 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ProxyObject Scope Leak PoC</title>
+    <title>ProxyObject Scope Leak Detection</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting ProxyObject scope leak test...");
+            log("Starting ProxyObject scope detection...");
 
-            // Dummy object to use in 'with' block
             const base = {
                 foo() { return "original"; }
             };
 
-            // Proxy handler to capture 'this'
+            let callCount = 0;
+
             const handler = {
                 get(target, prop, receiver) {
-                    log("Proxy 'get' called");
-                    log("Receiver constructor: " + receiver?.constructor?.name);
-                    log("Receiver toString(): " + receiver?.toString());
+                    if (callCount++ > 10) {
+                        // Avoid stack overflow
+                        log("Breaking recursion after 10 calls");
+                        return undefined;
+                    }
 
-                    // If receiver is a JSScope, we might be leaking internal pointer
+                    log("Proxy 'get' called (" + callCount + ")");
+                    log("prop = " + prop);
+
+                    // Log receiver info
+                    log("Receiver = " + receiver);
+                    log("Receiver.constructor = " + receiver?.constructor);
+                    log("Receiver.toString() = " + receiver?.toString());
+
+                    // Try inspecting properties
+                    try {
+                        log("Receiver hasOwnProperty('foo') = " + receiver.hasOwnProperty("foo"));
+                    } catch (e) {
+                        log("Error checking hasOwnProperty: " + e.message);
+                    }
+
+                    // Try leaking something?
                     if (receiver && typeof receiver === "object") {
-                        try {
-                            // Try converting to string or inspecting properties
-                            log("Receiver hasOwnProperty('foo'): " + receiver.hasOwnProperty("foo"));
-                        } catch (e) {
-                            log("Error inspecting receiver: " + e.message);
+                        for (let key in receiver) {
+                            try {
+                                log(`receiver.${key} = ${receiver[key]}`);
+                            } catch (e) {
+                                log(`Error reading receiver.${key}: ${e.message}`);
+                            }
                         }
                     }
 
-                    return target[prop];
+                    return Reflect.get(...arguments);
                 }
             };
 
             const proxy = new Proxy(base, handler);
 
-            // Run code inside 'with' block to trigger JSScope behavior
             (function () {
                 with (proxy) {
                     try {
-                        let result = foo(); // Should trigger Proxy 'get'
-                        log("foo() returned: " + result);
+                        foo(); // Should trigger Proxy 'get'
                     } catch (e) {
                         log("Exception in with-block: " + e.message);
                     }
@@ -53,7 +69,7 @@
     </script>
 </head>
 <body>
-    <h2>ProxyObject Scope Leak Test</h2>
-    <p>Detecting potential JSScope leaks via Proxy traps.</p>
+    <h2>ProxyObject Scope Leak Test v2</h2>
+    <p>Detecting potential JSScope leaks via Proxy traps with controlled recursion.</p>
 </body>
 </html>
