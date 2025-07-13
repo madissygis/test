@@ -1,42 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FakeObj + addrof Hybrid Test</title>
+    <title>Proxy Flow Hijack Test</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting FakeObj/addrof hybrid test...");
+            log("Starting Proxy Flow Hijack test...");
 
-            // Controlled arrays
-            const victim = new Float64Array(4);   // We'll try to corrupt this
-            const reader = new Float64Array(4);   // We'll use this to scan memory
+            // Dummy object to use in 'with' block
+            const base = {
+                foo() { return "original"; }
+            };
 
-            victim[0] = 1.1;
-            victim[1] = 2.2;
-            victim[2] = 3.3;
-            victim[3] = 4.4;
-
-            // Heap spray to increase chance of adjacency
-            let spray = [];
-            for (let i = 0; i < 2000; i++) {
-                spray.push(new Float64Array(4));
-            }
-
-            // Add victim and reader near each other
-            spray.push(victim);
-            spray.push(reader);
-
-            // Set up Proxy trap inside with-block
             let callCount = 0;
 
             const handler = {
                 get(target, prop, receiver) {
-                    if (callCount++ > 5) return undefined;
+                    if (callCount++ > 5) {
+                        log("Breaking recursion after 5 calls");
+                        return undefined;
+                    }
+
                     log("Proxy 'get' called (" + callCount + ")");
                     log("prop = " + prop);
+
+                    // Try to hijack property lookup
+                    if (prop === "toString") {
+                        log("Hijacking 'toString'");
+                        return () => {
+                            log("🎉 toString was called!");
+                            debugger; // If devtools are open
+                            return "hijacked";
+                        };
+                    }
 
                     // Try to inspect receiver deeply
                     try {
@@ -56,36 +55,24 @@
                 }
             };
 
-            const proxy = new Proxy({ x: 1 }, handler);
+            const proxy = new Proxy(base, handler);
 
             (function () {
                 with (proxy) {
                     try {
-                        log("Accessing 'toString'...");
-                        toString();
+                        log("Calling toString...");
+                        let result = toString(); // Should trigger hijack
+                        log("Result: " + result);
                     } catch (e) {
                         log("Exception in with-block: " + e.message);
                     }
                 }
             })();
-
-            // Try to detect memory overwrite
-            log("victim.length = " + victim.length);
-            log("reader.length = " + reader.length);
-
-            // Scan memory forward/backward
-            log("Scanning for memory changes...");
-            for (let i = 0; i < reader.length; i++) {
-                let val = reader[i];
-                if (val !== 0 && !isNaN(val)) {
-                    log(`reader[${i}] = ${val} (0x${new BigUint64Array(Float64Array.from([val]).buffer)[0].toString(16)})`);
-                }
-            }
         };
     </script>
 </head>
 <body>
-    <h2>FakeObj / addrof Hybrid Test</h2>
-    <p>Trying to inject fake objects and detect pointer leaks.</p>
+    <h2>Proxy Flow Hijack Test</h2>
+    <p>Trying to hijack JS execution flow via Proxy traps.</p>
 </body>
 </html>
