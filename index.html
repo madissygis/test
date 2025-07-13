@@ -1,18 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ProxyObject Scope Leak Detection v3</title>
+    <title>ProxyObject addrof() Detection</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting ProxyObject scope detection...");
+            log("Starting ProxyObject addrof() detection...");
 
-            const base = {
-                foo() { return "original"; }
-            };
+            // Object we want to find the address of
+            const victim = { secret: "flag{exploit_dev_in_progress}" };
+
+            // Heap spray to increase odds of overlap
+            const sprayCount = 1000;
+            let spray = [];
+            for (let i = 0; i < sprayCount; i++) {
+                spray.push({ obj: victim });
+            }
 
             let callCount = 0;
 
@@ -26,36 +32,40 @@
                     log("Proxy 'get' called (" + callCount + ")");
                     log("prop = " + prop);
 
-                    // Log basic receiver info
+                    // Log receiver type
                     log("Receiver = " + receiver);
-                    log("Receiver.constructor = " + receiver?.constructor?.name);
-                    try {
-                        log("Receiver.toString() = " + receiver.toString());
-                    } catch (e) {
-                        log("Error calling toString() on receiver");
-                    }
+                    log("Receiver.constructor = " + (receiver?.constructor?.name || "unknown"));
 
-                    // Try checking known internal-like properties
+                    // Try to extract any field that looks like a pointer
                     try {
                         for (let key in receiver) {
-                            if (key && key.length < 10) {
-                                log(`receiver.${key} = ${typeof receiver[key]} (${receiver[key]})`);
+                            try {
+                                const val = receiver[key];
+                                log(`receiver.${key} = ${typeof val} (${val})`);
+                                if (typeof val === "object" && val !== null) {
+                                    log(`  -> object keys: ${Object.keys(val).join(", ")}`);
+                                }
+                            } catch (e) {
+                                log(`Error reading receiver.${key}: ${e.message}`);
                             }
                         }
                     } catch (e) {
                         log("Error enumerating receiver keys: " + e.message);
                     }
 
-                    return Reflect.get(target, prop, receiver);
+                    return Reflect.get(...arguments);
                 }
             };
 
-            const proxy = new Proxy(base, handler);
+            const proxy = new Proxy(victim, handler);
 
+            // Run inside with-block to trigger JSScope behavior
             (function () {
                 with (proxy) {
                     try {
-                        foo(); // Should trigger Proxy 'get'
+                        // Access a property to trigger Proxy trap
+                        log("Accessing 'toString'...");
+                        toString(); // Could be any property access
                     } catch (e) {
                         log("Exception in with-block: " + e.message);
                     }
@@ -65,7 +75,7 @@
     </script>
 </head>
 <body>
-    <h2>ProxyObject Scope Leak Test v3</h2>
-    <p>Detecting potential JSScope leaks via Proxy traps with extra Symbol handling.</p>
+    <h2>ProxyObject addrof() Detection Test</h2>
+    <p>Trying to observe leaked pointers or internal object fields.</p>
 </body>
 </html>
