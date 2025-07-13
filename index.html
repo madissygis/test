@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ProxyObject Scope Leak Detection</title>
+    <title>ProxyObject Scope Leak Detection v3</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
@@ -18,39 +18,35 @@
 
             const handler = {
                 get(target, prop, receiver) {
-                    if (callCount++ > 10) {
-                        // Avoid stack overflow
-                        log("Breaking recursion after 10 calls");
+                    if (callCount++ > 5) {
+                        log("Breaking recursion after 5 calls");
                         return undefined;
                     }
 
                     log("Proxy 'get' called (" + callCount + ")");
                     log("prop = " + prop);
 
-                    // Log receiver info
+                    // Log basic receiver info
                     log("Receiver = " + receiver);
-                    log("Receiver.constructor = " + receiver?.constructor);
-                    log("Receiver.toString() = " + receiver?.toString());
-
-                    // Try inspecting properties
+                    log("Receiver.constructor = " + receiver?.constructor?.name);
                     try {
-                        log("Receiver hasOwnProperty('foo') = " + receiver.hasOwnProperty("foo"));
+                        log("Receiver.toString() = " + receiver.toString());
                     } catch (e) {
-                        log("Error checking hasOwnProperty: " + e.message);
+                        log("Error calling toString() on receiver");
                     }
 
-                    // Try leaking something?
-                    if (receiver && typeof receiver === "object") {
+                    // Try checking known internal-like properties
+                    try {
                         for (let key in receiver) {
-                            try {
-                                log(`receiver.${key} = ${receiver[key]}`);
-                            } catch (e) {
-                                log(`Error reading receiver.${key}: ${e.message}`);
+                            if (key && key.length < 10) {
+                                log(`receiver.${key} = ${typeof receiver[key]} (${receiver[key]})`);
                             }
                         }
+                    } catch (e) {
+                        log("Error enumerating receiver keys: " + e.message);
                     }
 
-                    return Reflect.get(...arguments);
+                    return Reflect.get(target, prop, receiver);
                 }
             };
 
@@ -69,7 +65,7 @@
     </script>
 </head>
 <body>
-    <h2>ProxyObject Scope Leak Test v2</h2>
-    <p>Detecting potential JSScope leaks via Proxy traps with controlled recursion.</p>
+    <h2>ProxyObject Scope Leak Test v3</h2>
+    <p>Detecting potential JSScope leaks via Proxy traps with extra Symbol handling.</p>
 </body>
 </html>
