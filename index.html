@@ -1,38 +1,18 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>PS4 Full-Screen Exit Crash</title>
-  <style>
-    #box {
-      width: 100px;
-      height: 100px;
-      background: red;
-      transition: transform 0.3s linear;
-    }
-  </style>
-</head>
-<body>
-  <div id="box"></div>
+<script>
+// All-in-one version that matches your working example
+const box = document.createElement('div');
+box.style = `width:100px;height:100px;background:red;transition:all 1s`;
+document.body.appendChild(box);
 
-  <script>
-    const box = document.getElementById('box');
+getComputedStyle(box).transform;
+box.style.transform = 'translateX(100px)';
 
-    // Enter full-screen immediately (user interaction may be required)
-    document.documentElement.requestFullscreen()
-      .then(() => {
-        // Start the transition
-        getComputedStyle(box).transform;
-        box.style.transform = 'translateX(100px)';
-
-        // Remove element mid-transition + force reflow
-        setTimeout(() => {
-          box.remove();
-          document.body.offsetHeight;
-        }, 50);
-
-        // No need for location.href - just wait for manual exit
-      })
-      .catch(e => console.error("Fullscreen failed:", e));
-  </script>
-</body>
+setTimeout(() => {
+  box.remove();
+  void document.body.offsetHeight; // Force layout
+  location.href = "?crash"; // Critical reload
+}, 50);
+</script>
 </html>
