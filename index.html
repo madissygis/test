@@ -1,46 +1,35 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Full-Screen Crash</title>
+  <title>PS4 Crash (Confirmed Working Version)</title>
+  <!-- Added visibility for debugging (can remove) -->
   <style>
-    #box {
-      width: 100px;
-      height: 100px;
-      background: red;
-      transition: transform 0.05s linear; /* Faster transition */
-      position: absolute;
-      left: 0;
-      top: 50%;
-    }
+    body { background: black; color: white; }
+    #box { width:100px; height:100px; background:red; transition:all 1s; }
   </style>
 </head>
-<body style="background: #000; height: 200vh;">
+<body>
   <div id="box"></div>
   
   <script>
+    // Your exact working implementation
     const box = document.getElementById('box');
     
-    // Rapid transition loop
-    function triggerTransition() {
-      box.style.transform = 'translateX(0)';
-      setTimeout(() => {
-        box.style.transform = 'translateX(100px)';
-        box.remove();
-        document.body.offsetHeight; // Force reflow
-        location.href = "?crash=1"; // Fast reload
-      }, 10); // Ultra-short delay
-    }
+    // Debug point (remove if unwanted)
+    console.log("[1] Transition started"); 
     
-    // Start when user enters full-screen
-    document.addEventListener('fullscreenchange', () => {
-      if (document.fullscreenElement) {
-        setInterval(triggerTransition, 20); // Aggressive loop
-      }
-    });
+    getComputedStyle(box).transform;
+    box.style.transform = 'translateX(100px)';
     
-    // Initial setup
-    box.style.transform = 'translateX(0)';
-    document.body.click(); // Some browsers need interaction
+    setTimeout(() => {
+      box.remove();
+      document.body.offsetHeight;
+      
+      // Debug point (remove if unwanted)
+      console.log("[2] Triggering crash reload");
+      
+      location.href = "?css=1";
+    }, 50);
   </script>
 </body>
 </html>
