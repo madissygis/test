@@ -4,36 +4,30 @@
   <title>PS4 11.50 - History/Frame Lifecycle Test</title>
 </head>
 <body>
-  <h1>Testing History + Iframe Crash</h1>
-  <iframe id="testFrame" src="about:blank" style="display:none"></iframe>
+  
+      <div id="container">
+  <svg height="100" width="100">
+    <circle cx="50" cy="50" r="40">
+      <animate attributeName="r" values="40;60" dur="0.1s" begin="click" id="anim"/>
+    </circle>
+  </svg>
+</div>
 
-  <script>
-    const frame = document.getElementById('testFrame');
-    
-    // Step 1: Write initial content
-    frame.contentDocument.open();
-    frame.contentDocument.write(`
-      <script>
-        // Step 2: On load, go back and rewrite
-        setTimeout(() => {
-          history.back(); // May corrupt frame state
-          document.open();
-          document.write('<h1>PoC</h1>');
-          document.close();
-        }, 50);
-      <\/script>
-    `);
-    frame.contentDocument.close();
+<script>
+  const anim = document.getElementById('anim');
+  const container = document.getElementById('container');
 
-    // Step 3: Push state to enable back()
-    history.pushState({x: 1}, '', '#1');
-    history.pushState({x: 2}, '', '#2');
+  anim.addEventListener('beginEvent', () => {
+    console.log("Begin event fired");
+    container.innerHTML = ''; // Remove SVG during event
+    location.href = "?test=svg1";
+  });
 
-    // Reload to detect crash
-    setTimeout(() => {
-      console.log("Reloading to check stability...");
-      location.href = "?round=1";
-    }, 3000);
-  </script>
+  // Auto-trigger click
+  setTimeout(() => {
+    const circle = document.querySelector('circle');
+    circle.click();
+  }, 100);
+</script>
 </body>
 </html>
