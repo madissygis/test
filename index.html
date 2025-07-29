@@ -1,16 +1,39 @@
+<!DOCTYPE html>
+<html>
 <head>
-<style>
-/* cache the font */
-@font-face {
-  font-family: 'uaf';
-  src: url(a.ttf);
-}
-body { 
-  font-family: 'uaf';
-}
-</style>
+  <title>PS4 11.50 - History/Frame Lifecycle Test</title>
 </head>
 <body>
-  <iframe id="a" onload="document.getElementById('a').remove();" src="child.html"></iframe>
-  <iframe id="b" onload="document.getElementById('b').remove();" src="child.html"></iframe>
+  <h1>Testing History + Iframe Crash</h1>
+  <iframe id="testFrame" src="about:blank" style="display:none"></iframe>
+
+  <script>
+    const frame = document.getElementById('testFrame');
+    
+    // Step 1: Write initial content
+    frame.contentDocument.open();
+    frame.contentDocument.write(`
+      <script>
+        // Step 2: On load, go back and rewrite
+        setTimeout(() => {
+          history.back(); // May corrupt frame state
+          document.open();
+          document.write('<h1>PoC</h1>');
+          document.close();
+        }, 50);
+      <\/script>
+    `);
+    frame.contentDocument.close();
+
+    // Step 3: Push state to enable back()
+    history.pushState({x: 1}, '', '#1');
+    history.pushState({x: 2}, '', '#2');
+
+    // Reload to detect crash
+    setTimeout(() => {
+      console.log("Reloading to check stability...");
+      location.href = "?round=1";
+    }, 3000);
+  </script>
 </body>
+</html>
