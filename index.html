@@ -4,21 +4,24 @@
   <title>PS4 11.50 - History/Frame Lifecycle Test</title>
 </head>
 <body>
-  
-      <script>
-  let worker = new Worker('data:text/javascript,while(1){}');
-  
-  worker.postMessage('start');
 
-  // Rapid terminate + GC
+<div id="box" style="width:100px;height:100px;background:red;transition:all 1s"></div>
+
+<script>
+  const box = document.getElementById('box');
+
+  // Trigger layout
+  getComputedStyle(box).transform;
+
+  // Start transition
+  box.style.transform = 'translateX(100px)';
+
+  // Remove during animation
   setTimeout(() => {
-    worker.terminate();
-    worker = null;
-    if (window.gc) gc();
-
-    // Try to reuse memory
-    let arr = new Array(10000).fill('A');
-    location.href = "?worker=test";
+    box.remove();
+    // Force layout
+    document.body.offsetHeight;
+    location.href = "?css=1";
   }, 50);
 </script>
 </body>
