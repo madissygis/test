@@ -5,29 +5,21 @@
 </head>
 <body>
   
-      <div id="container">
-  <svg height="100" width="100">
-    <circle cx="50" cy="50" r="40">
-      <animate attributeName="r" values="40;60" dur="0.1s" begin="click" id="anim"/>
-    </circle>
-  </svg>
-</div>
+      <script>
+  let worker = new Worker('data:text/javascript,while(1){}');
+  
+  worker.postMessage('start');
 
-<script>
-  const anim = document.getElementById('anim');
-  const container = document.getElementById('container');
-
-  anim.addEventListener('beginEvent', () => {
-    console.log("Begin event fired");
-    container.innerHTML = ''; // Remove SVG during event
-    location.href = "?test=svg1";
-  });
-
-  // Auto-trigger click
+  // Rapid terminate + GC
   setTimeout(() => {
-    const circle = document.querySelector('circle');
-    circle.click();
-  }, 100);
+    worker.terminate();
+    worker = null;
+    if (window.gc) gc();
+
+    // Try to reuse memory
+    let arr = new Array(10000).fill('A');
+    location.href = "?worker=test";
+  }, 50);
 </script>
 </body>
 </html>
